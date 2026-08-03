@@ -1,0 +1,385 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f1420;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+.app {
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1, h2, h3, h4 {
+  margin: 0.4em 0;
+}
+
+.title {
+  font-size: 42px;
+  letter-spacing: 6px;
+}
+
+.subtitle {
+  color: #94a3b8;
+}
+
+.muted {
+  color: #94a3b8;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.center-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 8vh;
+  gap: 8px;
+}
+
+.start-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.seed-input {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 150px;
+}
+
+/* Buttons */
+.btn {
+  background: #334155;
+  color: #e2e8f0;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn.primary {
+  background: #16a34a;
+}
+
+.btn.danger {
+  background: #7f1d1d;
+}
+
+.btn.small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0 14px;
+  border-bottom: 1px solid #1e293b;
+  margin-bottom: 14px;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-size: 13px;
+  color: #4ade80;
+}
+
+.topbar .you {
+  color: #cbd5e1;
+  flex: 1;
+}
+
+.tab {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tab.active {
+  background: #1e293b;
+  color: #fff;
+}
+
+/* Layout */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: #151b2b;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #64748b;
+  padding: 6px 8px;
+  border-bottom: 1px solid #1e293b;
+}
+
+td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #16202f;
+}
+
+tr.clickable {
+  cursor: pointer;
+}
+
+tr.clickable:hover {
+  background: #1a2438;
+}
+
+tr.you-row {
+  background: #14324a;
+}
+
+tr.playoff-line td {
+  border-bottom: 2px dashed #475569;
+}
+
+/* Season screen */
+.owner-line {
+  color: #cbd5e1;
+}
+
+.patience {
+  color: #f87171;
+  letter-spacing: 2px;
+}
+
+.patience-empty {
+  color: #334155;
+}
+
+.result {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+}
+
+.result.win {
+  color: #4ade80;
+}
+
+.result.loss {
+  color: #f87171;
+}
+
+.injuries {
+  margin-top: 10px;
+}
+
+.injury {
+  color: #fbbf24;
+  font-size: 13px;
+}
+
+.injury.fatal {
+  color: #f87171;
+  font-weight: 700;
+}
+
+.injury-cell {
+  color: #f87171;
+  font-size: 12px;
+}
+
+/* Team select */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.team-pick {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  background: #151b2b;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.team-pick:hover {
+  border-color: #4ade80;
+}
+
+.team-rank {
+  color: #64748b;
+}
+
+.team-name {
+  font-weight: 600;
+}
+
+.team-rating {
+  color: #4ade80;
+}
+
+.team-schemes {
+  grid-column: 1 / -1;
+  color: #64748b;
+  font-size: 12px;
+}
+
+/* Player card */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.chip {
+  background: #1e293b;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip.core {
+  outline: 1px solid #4ade80;
+}
+
+.chip.support {
+  outline: 1px solid #60a5fa;
+}
+
+.chip.deEmphasis {
+  opacity: 0.55;
+}
+
+.chip.dev {
+  color: #4ade80;
+}
+
+.skill-list {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.skill-choice {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0;
+}
+
+/* Draft */
+.on-clock {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.pick-list {
+  padding-left: 18px;
+}
+
+.pick-list li {
+  margin: 4px 0;
+}
+
+/* Review / run over */
+.review .bracket {
+  text-align: left;
+  margin: 10px 0;
+}
+
+.bracket-game {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin: 3px 0;
+}
+
+.owner-review {
+  margin: 14px 0;
+}
+
+.review-message {
+  font-style: italic;
+  color: #fbbf24;
+}
+
+.champ-you {
+  color: #fbbf24;
+}
+
+.run-over {
+  color: #f87171;
+  letter-spacing: 8px;
+}

@@ -386,8 +386,11 @@ Current output:
    added (§6.2, §7.1).~~ **Done.**
 5. **Draft & trades**: offseason phase, procedural draft class
    generator, AI trade logic.
-6. **Playable UI**: React front end — roster and player cards, play
-   calling during games, season progression, box scores.
+6. ~~**Playable UI**: React front end (`web/`, `npm run ui`) — team
+   select, week-by-week season with standings and injuries, roster
+   with player cards and skill spending, draft room, ownership
+   review, run-over screen, autosave to localStorage.~~ **Done**
+   (play calling during games still sim-controlled — a later layer).
 7. **Roguelike meta layer**: permadeath injuries, firing/run-end
    conditions, cross-run meta-progression and difficulty scaling.
 
