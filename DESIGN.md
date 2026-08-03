@@ -85,9 +85,10 @@ interface Player {
   id: string;
   name: string;          // procedurally generated
   position: Position;
+  archetypeId: string;    // see §5.2 — drives scheme fit
   age: number;
-  overall: number;        // derived, not directly editable
-  attributes: Record<AttributeKey, number>; // e.g. speed, strength, awareness, catching...
+  general: Record<GeneralAttributeKey, number>;              // §5.1 tier 1
+  positional: Partial<Record<PositionalAttributeKey, number>>; // §5.1 tier 2
   skillTree: SkillNode[]; // position-specific, see §6
   potential: number;      // ceiling, hidden/fuzzy to the player (rogue-like fog)
   health: {
@@ -97,7 +98,57 @@ interface Player {
   contract: { yearsLeft: number; capHit: number };
   morale: number;
 }
+```
 
+Overall is derived from attributes rather than stored, so it can never drift
+out of sync with the stats on the card.
+
+### 5.1 Two-tier attributes (Madden-style)
+
+Player stats split into two tiers, which is also exactly how a player card
+renders:
+
+- **General** — physical/mental traits *every* player has: Speed (SPD),
+  Acceleration (ACC), Agility (AGI), Strength (STR), Awareness (AWR),
+  Stamina (STA), Injury Resistance (INJ).
+- **Positional** — skill groups that only exist for positions that use
+  them, so a cornerback simply *has no* `throwPower` field rather than an
+  irrelevant number:
+
+  | Group | Attributes |
+  |---|---|
+  | Passing | THP, SAC, DAC, TOR, PAC |
+  | Ball Carrying | CAR, BTK, ELU, BCV |
+  | Receiving | CTH, CIT, RTE, RLS |
+  | Blocking | RBK, PBK, IBL |
+  | Pass Rush | PMV, FMV, BSH, PUR |
+  | Tackling | TAK, POW |
+  | Coverage | MCV, ZCV, PRS, PRC |
+  | Kicking | KPW, KAC |
+
+Each position declares which groups it owns (`POSITION_GROUPS`) and carries
+a **per-attribute baseline** (`POSITION_BASELINES`) — receivers average ~88
+speed and linemen ~52, a back's pass blocking tops out far below a tackle's.
+Baselines are then normalized per position (`POSITION_BASELINE_OFFSET`) so
+an 80-overall QB and an 80-overall CB represent comparable value; without
+that, positions whose weights favor naturally-high attributes would
+out-rate the rest and skew team ratings.
+
+### 5.2 Archetypes
+
+Within a position, archetypes give players distinct identities: Man Corner
+vs. Zone Corner, Road Grader vs. Pass Protector, Power Rusher vs. Speed
+Rusher. Modifiers are deliberately trade-offs — every archetype gives up
+something — so none is strictly best. What makes one *right* is scheme fit
+(§6): a Road Grader is worth more in a Power Run offense than in an Air
+Raid, and a Man Corner is wasted in a Cover-2 Zone scheme.
+
+This is the mechanism that makes the scheme counter-web bite at the roster
+level rather than being a flat multiplier.
+
+### 5.3 Team & League
+
+```ts
 interface Team {
   id: string;
   name: string;
