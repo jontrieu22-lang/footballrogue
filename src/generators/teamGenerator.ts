@@ -1,0 +1,54 @@
+import type { Team } from "../models/team.js";
+import type { SeededRng } from "../rng.js";
+import type { Position } from "../types.js";
+import { DEFENSE_SCHEMES, OFFENSE_SCHEMES } from "../schemes.js";
+import { generatePlayerName, generateTeamName } from "./names.js";
+import { generatePlayer } from "./playerGenerator.js";
+
+/** Roster composition — 52 players, roughly mirroring a real NFL roster's position mix. */
+const ROSTER_COMPOSITION: Record<Position, number> = {
+  QB: 3,
+  RB: 4,
+  WR: 6,
+  TE: 3,
+  OL: 9,
+  DL: 8,
+  LB: 7,
+  CB: 6,
+  S: 4,
+  K: 1,
+  P: 1,
+};
+
+const STARTING_FRANCHISE_POINTS = 100;
+
+let nextTeamId = 1;
+
+export function resetTeamIdCounter(): void {
+  nextTeamId = 1;
+}
+
+export interface GenerateTeamOptions {
+  qualityBias?: number;
+}
+
+export function generateTeam(rng: SeededRng, options: GenerateTeamOptions = {}): Team {
+  const roster = [];
+  for (const [position, count] of Object.entries(ROSTER_COMPOSITION) as [Position, number][]) {
+    for (let i = 0; i < count; i++) {
+      roster.push(generatePlayer(position, rng, generatePlayerName(rng), options));
+    }
+  }
+
+  return {
+    id: `t${nextTeamId++}`,
+    name: generateTeamName(rng),
+    roster,
+    scheme: { offense: rng.pick(OFFENSE_SCHEMES), defense: rng.pick(DEFENSE_SCHEMES) },
+    franchisePoints: STARTING_FRANCHISE_POINTS,
+    draftPicks: [],
+    record: { wins: 0, losses: 0, ties: 0 },
+    pointsFor: 0,
+    pointsAgainst: 0,
+  };
+}
