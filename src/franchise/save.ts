@@ -58,10 +58,16 @@ interface StorageLike {
 }
 
 function storage(): StorageLike | undefined {
-  return typeof globalThis !== "undefined" &&
-    (globalThis as { localStorage?: StorageLike }).localStorage !== undefined
-    ? (globalThis as unknown as { localStorage: StorageLike }).localStorage
-    : undefined;
+  // Merely *touching* localStorage throws a SecurityError in sandboxed
+  // iframes (embeds, artifact hosts), so the probe itself needs the try.
+  try {
+    const candidate = (globalThis as { localStorage?: StorageLike }).localStorage;
+    if (!candidate) return undefined;
+    candidate.getItem("__probe__");
+    return candidate;
+  } catch {
+    return undefined;
+  }
 }
 
 export function saveToBrowser(session: GameSession): boolean {
