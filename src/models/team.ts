@@ -1,3 +1,4 @@
+import type { SchemeId } from "../schemes.js";
 import type { DefenseSchemeId, OffenseSchemeId, Position } from "../types.js";
 import { computeOverall, type Player } from "./player.js";
 
@@ -38,10 +39,15 @@ const DEFENSE_GROUP_WEIGHTS: Partial<Record<Position, number>> = {
   S: 0.2,
 };
 
-function topOverallsAtPosition(roster: Player[], position: Position, count: number): number[] {
+function topOverallsAtPosition(
+  roster: Player[],
+  position: Position,
+  count: number,
+  scheme?: SchemeId,
+): number[] {
   return roster
     .filter((p) => p.position === position && p.health.status !== "career-ending")
-    .map((p) => computeOverall(p))
+    .map((p) => computeOverall(p, scheme))
     .sort((a, b) => b - a)
     .slice(0, count);
 }
@@ -55,19 +61,36 @@ function weightedGroupRating(
   roster: Player[],
   starters: Partial<Record<Position, number>>,
   weights: Partial<Record<Position, number>>,
+  scheme?: SchemeId,
 ): number {
   let total = 0;
   for (const [position, weight] of Object.entries(weights) as [Position, number][]) {
     const count = starters[position] ?? 1;
-    total += average(topOverallsAtPosition(roster, position, count)) * weight;
+    total += average(topOverallsAtPosition(roster, position, count, scheme)) * weight;
   }
   return total;
 }
 
-export function computeOffenseRating(team: Pick<Team, "roster">): number {
+export type RatedTeam = Pick<Team, "roster" | "scheme">;
+
+/**
+ * Both ratings are computed *in the team's own scheme*, so a roster stocked
+ * with players who fit it rates higher than the same talent in a scheme that
+ * wastes them. This is what makes roster construction a real decision.
+ */
+export function computeOffenseRating(team: RatedTeam): number {
+  return weightedGroupRating(team.roster, OFFENSE_STARTERS, OFFENSE_GROUP_WEIGHTS, team.scheme.offense);
+}
+
+export function computeDefenseRating(team: RatedTeam): number {
+  return weightedGroupRating(team.roster, DEFENSE_STARTERS, DEFENSE_GROUP_WEIGHTS, team.scheme.defense);
+}
+
+/** Ratings ignoring scheme — the raw talent on the roster, for scouting/trade valuation. */
+export function computeRawOffenseRating(team: Pick<Team, "roster">): number {
   return weightedGroupRating(team.roster, OFFENSE_STARTERS, OFFENSE_GROUP_WEIGHTS);
 }
 
-export function computeDefenseRating(team: Pick<Team, "roster">): number {
+export function computeRawDefenseRating(team: Pick<Team, "roster">): number {
   return weightedGroupRating(team.roster, DEFENSE_STARTERS, DEFENSE_GROUP_WEIGHTS);
 }

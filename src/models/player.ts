@@ -1,3 +1,4 @@
+import { schemeWeightFor, type SchemeId } from "../schemes.js";
 import type { Position } from "../types.js";
 import {
   POSITION_OVERALL_WEIGHTS,
@@ -35,7 +36,7 @@ export interface Player {
 
 export type RatedPlayer = Pick<Player, "position" | "general" | "positional">;
 
-/** Reads an attribute from whichever tier holds it, or undefined if the position lacks it. */
+/** Reads a player's raw attribute, or undefined if the position lacks it. */
 export function getAttribute(player: RatedPlayer, key: AttributeKey): number | undefined {
   if (key in player.general) {
     return player.general[key as GeneralAttributeKey];
@@ -45,18 +46,24 @@ export function getAttribute(player: RatedPlayer, key: AttributeKey): number | u
 
 /**
  * Weighted 0-99 overall rating, spanning both attribute tiers. Weights are
- * renormalized over the attributes actually present so a position whose
+ * renormalized over the attributes actually present, so a position whose
  * weights reference a missing attribute still produces a sane rating rather
  * than being silently dragged toward zero.
+ *
+ * Passing a scheme reweights the attributes by what that scheme asks for and
+ * returns the player's rating *in that scheme*; omitting it returns their
+ * true rating. Nothing is written back — switching scheme changes how a
+ * player performs, not who they are.
  */
-export function computeOverall(player: RatedPlayer): number {
+export function computeOverall(player: RatedPlayer, scheme?: SchemeId): number {
   const weights = POSITION_OVERALL_WEIGHTS[player.position];
   let weightedSum = 0;
   let totalWeight = 0;
 
-  for (const [key, weight] of Object.entries(weights) as [AttributeKey, number][]) {
+  for (const [key, baseWeight] of Object.entries(weights) as [AttributeKey, number][]) {
     const value = getAttribute(player, key);
     if (value === undefined) continue;
+    const weight = scheme === undefined ? baseWeight : baseWeight * schemeWeightFor(scheme, key);
     weightedSum += value * weight;
     totalWeight += weight;
   }

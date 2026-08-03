@@ -186,9 +186,32 @@ hard blocks):
 - Cover-2 Zone smothers Air Raid deep shots but is soft against Power
   Run between the tackles.
 
-Scheme fit also depends on roster composition — a Power Run scheme
-needs OL/RB attributes and skill nodes invested accordingly, so
-scheme choice and player build reinforce each other.
+### 6.1 Scheme fit — what a scheme asks of its players
+
+Fit and counter are separate mechanisms. The matchup table above is
+*counter*: how your scheme fares against theirs. **Fit** is how well
+your roster suits the scheme you chose, and it works by changing
+**which traits count** rather than by adding a bonus to them.
+
+Each scheme marks attributes as `core` (×2.0 weight), `support`
+(×1.4), or `deEmphasis` (×0.5), and a player's rating is recomputed
+with those weights. Cover-2 Zone makes zone coverage and play
+recognition decide a corner's worth and makes press technique nearly
+irrelevant; Blitz-Heavy Man does the exact reverse. Nothing is written
+back to the player — switching scheme changes how someone performs,
+not who they are.
+
+It has to act on the weights, not the attribute values. A corner's
+overall permanently weights man coverage (0.20) above zone (0.16), so
+a flat value bonus left a man specialist out-rating a zone specialist
+*inside a zone scheme* — the wrong trait kept the heavier weight.
+Reweighting fixes it at the source: a 71-overall Man Corner drops to
+64 in Cover-2 while a 61-overall Zone Corner rises to 63.
+
+This is what makes archetypes (§5.2) matter and what makes roster
+construction a real decision — building a whole roster for its schemes
+rather than against them is currently worth ~1.6 wins per season,
+tracked by `npm run sanity` so it can't silently regress to zero.
 
 **Skill trees** are per-position, unlocked with Franchise Points
 earned from that player's in-game performance (a QB who throws for

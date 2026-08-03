@@ -7,6 +7,12 @@ import {
   type AttributeGroupName,
   type AttributeKey,
 } from "./attributes.js";
+import {
+  emphasisLevelFor,
+  SCHEME_LABELS,
+  type EmphasisLevel,
+  type SchemeId,
+} from "../schemes.js";
 import { computeOverall, type Player } from "./player.js";
 
 export interface CardStat {
@@ -14,6 +20,8 @@ export interface CardStat {
   abbr: string;
   name: string;
   value: number;
+  /** How the viewing scheme regards this stat; "neutral" when no scheme is applied. */
+  emphasis: EmphasisLevel;
 }
 
 export interface CardSection {
@@ -26,29 +34,43 @@ export interface PlayerCard {
   position: string;
   archetype: string;
   age: number;
+  /** True rating, scheme-independent. */
   overall: number;
+  /** Rating in the viewing scheme, when one is supplied. */
+  schemeOverall?: number;
+  schemeName?: string;
   general: CardStat[];
   positionalSections: CardSection[];
 }
 
-function toStat(key: AttributeKey, value: number): CardStat {
+function toStat(key: AttributeKey, value: number, scheme?: SchemeId): CardStat {
   const label = ATTRIBUTE_LABELS[key];
-  return { key, abbr: label.abbr, name: label.name, value };
+  return {
+    key,
+    abbr: label.abbr,
+    name: label.name,
+    value,
+    emphasis: scheme === undefined ? "neutral" : emphasisLevelFor(scheme, key),
+  };
 }
 
 /**
  * Structured view of a player split into the general tier and one section
  * per positional skill group — the shape a card UI renders directly.
+ *
+ * Passing a scheme annotates each stat with how that scheme regards it and
+ * adds the player's rating within it, so the cost of a bad fit is visible
+ * rather than buried in the sim.
  */
-export function buildPlayerCard(player: Player): PlayerCard {
-  const general = GENERAL_ATTRIBUTES.map((key) => toStat(key, player.general[key]));
+export function buildPlayerCard(player: Player, scheme?: SchemeId): PlayerCard {
+  const general = GENERAL_ATTRIBUTES.map((key) => toStat(key, player.general[key], scheme));
 
   const positionalSections: CardSection[] = [];
   for (const group of POSITION_GROUPS[player.position] as readonly AttributeGroupName[]) {
     const stats: CardStat[] = [];
     for (const key of ATTRIBUTE_GROUPS[group]) {
       const value = player.positional[key];
-      if (value !== undefined) stats.push(toStat(key, value));
+      if (value !== undefined) stats.push(toStat(key, value, scheme));
     }
     if (stats.length > 0) {
       positionalSections.push({ title: GROUP_LABELS[group], stats });
@@ -61,37 +83,56 @@ export function buildPlayerCard(player: Player): PlayerCard {
     archetype: player.archetypeName,
     age: player.age,
     overall: computeOverall(player),
+    ...(scheme !== undefined && {
+      schemeOverall: computeOverall(player, scheme),
+      schemeName: SCHEME_LABELS[scheme],
+    }),
     general,
     positionalSections,
   };
 }
 
-const CARD_WIDTH = 46;
+const CARD_WIDTH = 50;
+
+const EMPHASIS_MARKS: Record<EmphasisLevel, string> = {
+  core: "^", // scheme is built around this
+  support: "+", // helps
+  neutral: " ",
+  deEmphasis: "-", // this scheme wastes it
+};
 
 function statLine(stats: CardStat[], perRow: number): string[] {
   const lines: string[] = [];
   for (let i = 0; i < stats.length; i += perRow) {
     const row = stats
       .slice(i, i + perRow)
-      .map((s) => `${s.abbr} ${String(s.value).padStart(2)}`)
-      .join("  ");
+      .map((s) => `${s.abbr} ${String(s.value).padStart(2)}${EMPHASIS_MARKS[s.emphasis]}`)
+      .join(" ");
     lines.push(row);
   }
   return lines;
 }
 
 /** Terminal rendering of a player card, for the CLI demo. */
-export function renderPlayerCard(player: Player): string {
-  const card = buildPlayerCard(player);
+export function renderPlayerCard(player: Player, scheme?: SchemeId): string {
+  const card = buildPlayerCard(player, scheme);
   const pad = (text: string) => `│ ${text.padEnd(CARD_WIDTH - 4)} │`;
   const rule = (left: string, right: string) => `${left}${"─".repeat(CARD_WIDTH - 2)}${right}`;
 
   const lines: string[] = [rule("┌", "┐")];
-  lines.push(pad(`${card.name}`));
+  lines.push(pad(card.name));
   lines.push(pad(`${card.position}  ${card.archetype}`));
-  lines.push(pad(`Age ${card.age}${" ".repeat(6)}OVR ${card.overall}`));
-  lines.push(rule("├", "┤"));
 
+  if (card.schemeOverall === undefined) {
+    lines.push(pad(`Age ${card.age}      OVR ${card.overall}`));
+  } else {
+    const delta = card.schemeOverall - card.overall;
+    const sign = delta >= 0 ? "+" : "";
+    lines.push(pad(`Age ${card.age}      OVR ${card.overall}  ->  ${card.schemeOverall} (${sign}${delta})`));
+    lines.push(pad(`in ${card.schemeName}`));
+  }
+
+  lines.push(rule("├", "┤"));
   lines.push(pad("GENERAL"));
   for (const row of statLine(card.general, 4)) lines.push(pad(`  ${row}`));
 
