@@ -1,12 +1,20 @@
 import type { SeededRng } from "../rng.js";
 import {
+  expectedPoints,
+  expectedPointsAfterTurnover,
+  FIELD_GOAL_VALUE,
+  SAFETY_VALUE,
+  TOUCHDOWN_VALUE,
+} from "./expectedPoints.js";
+import {
   attemptExtraPoint,
   attemptFieldGoal,
+  fieldGoalProbability,
   fieldGoalRangeFromScrimmage,
   puntDistance,
   type Kicker,
 } from "./kicking.js";
-import { resolvePlay, type PlayResult } from "./play.js";
+import { resolvePlay, type PlayResult, type PlayType } from "./play.js";
 import type { GameSituation, PlayCaller } from "./playCalling.js";
 import type { TeamUnitRatings } from "./units.js";
 import type { OffenseSchemeId } from "../types.js";
@@ -21,6 +29,12 @@ export type DriveOutcome =
   | "safety"
   | "endOfHalf";
 
+/** A play plus what it was worth in expected points. */
+export interface PlayRecord extends PlayResult {
+  /** Expected points added for the offense. The defense is credited its negative. */
+  epa: number;
+}
+
 export interface DriveResult {
   outcome: DriveOutcome;
   points: number;
@@ -29,7 +43,14 @@ export interface DriveResult {
   playsRun: number;
   yardsGained: number;
   clockSeconds: number;
-  plays: PlayResult[];
+  plays: PlayRecord[];
+  /** Total expected points added by the offense over the drive. */
+  epa: number;
+  /** EPA split by the play type that produced it, for crediting the right unit. */
+  passEpa: number;
+  rushEpa: number;
+  /** EPA from field goal attempts, which belongs to the kicker rather than an offensive unit. */
+  kickEpa: number;
 }
 
 export interface DriveContext {
@@ -55,19 +76,35 @@ function flipField(yardsToGoal: number): number {
 /**
  * Plays out a single possession: downs, field position, and a fourth-down
  * decision, ending in a score, a change of possession, or the clock running
- * out. Field position is returned in the *next* offense's frame so drives can
- * be chained, which is what gives turnovers and punts real consequences.
+ * out.
+ *
+ * Every play is valued in expected points — the offense banks what it gains
+ * and the defense is credited the negative — so a drive's worth nets the two
+ * against each other rather than counting yards.
  */
 export function simulateDrive(context: DriveContext, rng: SeededRng): DriveResult {
-  const plays: PlayResult[] = [];
+  const plays: PlayRecord[] = [];
   let yardsToGoal = Math.max(1, Math.min(99, context.startingYardsToGoal));
   const startingYardsToGoal = yardsToGoal;
   let down = 1;
   let yardsToFirstDown = Math.min(10, yardsToGoal);
   let clockSeconds = 0;
-  const fieldGoalRange = fieldGoalRangeFromScrimmage(context.kicker);
+  let passEpa = 0;
+  let rushEpa = 0;
+  let kickEpa = 0;
 
-  const finish = (outcome: DriveOutcome, points: number, nextFieldPosition: number): DriveResult => ({
+  const kickRange = fieldGoalRangeFromScrimmage(context.kicker);
+
+  const creditEpa = (type: PlayType, epa: number): void => {
+    if (type === "pass") passEpa += epa;
+    else rushEpa += epa;
+  };
+
+  const finish = (
+    outcome: DriveOutcome,
+    points: number,
+    nextFieldPosition: number,
+  ): DriveResult => ({
     outcome,
     points,
     nextFieldPosition: Math.max(1, Math.min(99, nextFieldPosition)),
@@ -75,6 +112,10 @@ export function simulateDrive(context: DriveContext, rng: SeededRng): DriveResul
     yardsGained: startingYardsToGoal - yardsToGoal,
     clockSeconds,
     plays,
+    epa: passEpa + rushEpa + kickEpa,
+    passEpa,
+    rushEpa,
+    kickEpa,
   });
 
   const situation = (): GameSituation => ({
@@ -92,23 +133,35 @@ export function simulateDrive(context: DriveContext, rng: SeededRng): DriveResul
     }
 
     if (down === 4) {
-      const decision = context.playCaller.callFourthDown(situation(), fieldGoalRange, rng);
+      const decision = context.playCaller.callFourthDown(
+        situation(),
+        {
+          fieldGoalRange: kickRange,
+          fieldGoalProbability: fieldGoalProbability(context.kicker, yardsToGoal),
+          expectedPuntDistance: 40 + (context.punter.power - 70) * 0.22,
+        },
+        rng,
+      );
 
       if (decision.action === "fieldGoal") {
         clockSeconds += 6;
+        // Kicking value belongs to neither the pass nor the run game, so it is
+        // tracked separately rather than credited to an offensive unit.
+        const valueBefore = expectedPoints(yardsToGoal, down, yardsToFirstDown);
         if (attemptFieldGoal(context.kicker, yardsToGoal, rng)) {
+          kickEpa += FIELD_GOAL_VALUE - valueBefore;
           return finish("fieldGoal", 3, TOUCHBACK_YARDS_TO_GOAL);
         }
-        // A miss hands the opponent the ball at the spot of the kick.
-        return finish("missedFieldGoal", 0, flipField(Math.min(99, yardsToGoal + 8)));
+        const missSpot = flipField(Math.min(99, yardsToGoal + 8));
+        kickEpa += expectedPointsAfterTurnover(missSpot) - valueBefore;
+        return finish("missedFieldGoal", 0, missSpot);
       }
 
       if (decision.action === "punt") {
         clockSeconds += 14;
         const distance = puntDistance(context.punter, rng);
-        const landingYardsToGoal = yardsToGoal - distance;
-        // Punted into the end zone -> touchback.
-        const nextPosition = landingYardsToGoal <= 0 ? TOUCHBACK_YARDS_TO_GOAL : flipField(landingYardsToGoal);
+        const landing = yardsToGoal - distance;
+        const nextPosition = landing <= 0 ? TOUCHBACK_YARDS_TO_GOAL : flipField(landing);
         return finish("punt", 0, nextPosition);
       }
       // "go" falls through and runs a normal play on fourth down.
@@ -116,10 +169,15 @@ export function simulateDrive(context: DriveContext, rng: SeededRng): DriveResul
 
     const playType = context.playCaller.callPlay(situation(), rng);
     const play = resolvePlay(playType, context.offense, context.defense, rng);
-    plays.push(play);
     clockSeconds += play.clockSeconds;
 
+    const valueBefore = expectedPoints(yardsToGoal, down, yardsToFirstDown);
+
     if (play.turnover) {
+      const valueAfter = expectedPointsAfterTurnover(flipField(yardsToGoal));
+      const epa = valueAfter - valueBefore;
+      plays.push({ ...play, epa });
+      creditEpa(playType, epa);
       return finish("turnover", 0, flipField(yardsToGoal));
     }
 
@@ -127,25 +185,47 @@ export function simulateDrive(context: DriveContext, rng: SeededRng): DriveResul
 
     if (yardsToGoal <= 0) {
       clockSeconds += 6;
+      const epa = TOUCHDOWN_VALUE - valueBefore;
+      plays.push({ ...play, epa });
+      creditEpa(playType, epa);
       const points = 6 + (attemptExtraPoint(context.kicker, rng) ? 1 : 0);
       return finish("touchdown", points, TOUCHBACK_YARDS_TO_GOAL);
     }
 
     if (yardsToGoal >= 100) {
-      // Tackled in his own end zone.
+      const epa = SAFETY_VALUE - valueBefore;
+      plays.push({ ...play, epa });
+      creditEpa(playType, epa);
       return finish("safety", -2, TOUCHBACK_YARDS_TO_GOAL);
     }
 
     yardsToFirstDown -= play.yards;
 
+    let nextDown = down;
+    let nextDistance = yardsToFirstDown;
+    let endedOnDowns = false;
+
     if (yardsToFirstDown <= 0) {
-      down = 1;
-      yardsToFirstDown = Math.min(10, yardsToGoal);
+      nextDown = 1;
+      nextDistance = Math.min(10, yardsToGoal);
     } else if (down === 4) {
-      // Went for it and came up short.
-      return finish("downs", 0, flipField(yardsToGoal));
+      endedOnDowns = true;
     } else {
-      down += 1;
+      nextDown = down + 1;
     }
+
+    const valueAfter = endedOnDowns
+      ? expectedPointsAfterTurnover(flipField(yardsToGoal))
+      : expectedPoints(yardsToGoal, nextDown, nextDistance);
+    const epa = valueAfter - valueBefore;
+    plays.push({ ...play, epa });
+    creditEpa(playType, epa);
+
+    if (endedOnDowns) {
+      return finish("downs", 0, flipField(yardsToGoal));
+    }
+
+    down = nextDown;
+    yardsToFirstDown = nextDistance;
   }
 }

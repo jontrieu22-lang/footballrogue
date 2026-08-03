@@ -3,6 +3,8 @@ import type { Team } from "../models/team.js";
 import type { SeededRng } from "../rng.js";
 import { simulateGame, type GameResult } from "./gameSim.js";
 import { generateSchedule } from "./schedule.js";
+import { awardDevelopmentPoints } from "../progression/development.js";
+import { developTeam } from "../progression/aiDevelopment.js";
 
 export function scheduleSeason(league: League, totalWeeks: number): void {
   league.schedule = generateSchedule(
@@ -33,8 +35,27 @@ export interface SeasonSummary {
   results: GameResult[];
 }
 
+export interface SimulateSeasonOptions {
+  /**
+   * Award development points from each game's expected points added. On by
+   * default; turn it off to sim a season without progressing anyone.
+   */
+  awardDevelopment?: boolean;
+  /**
+   * Let AI teams spend their players' points as they earn them. Pass the id of
+   * the human-controlled team to leave its points unspent for the player.
+   */
+  autoDevelopTeams?: boolean;
+  humanTeamId?: string;
+}
+
 /** Plays out every game on `league.schedule` in order, mutating team records/points as it goes. */
-export function simulateSeason(league: League, rng: SeededRng): SeasonSummary {
+export function simulateSeason(
+  league: League,
+  rng: SeededRng,
+  options: SimulateSeasonOptions = {},
+): SeasonSummary {
+  const { awardDevelopment = true, autoDevelopTeams = true, humanTeamId } = options;
   if (league.schedule.length === 0) {
     throw new Error("League has no schedule — call scheduleSeason() first.");
   }
@@ -51,6 +72,17 @@ export function simulateSeason(league: League, rng: SeededRng): SeasonSummary {
     const result = simulateGame(home, away, rng);
     results.push(result);
     applyResult(home, away, result);
+
+    if (awardDevelopment) {
+      awardDevelopmentPoints(home, result.home);
+      awardDevelopmentPoints(away, result.away);
+    }
+  }
+
+  if (autoDevelopTeams) {
+    for (const team of league.teams) {
+      if (team.id !== humanTeamId) developTeam(team);
+    }
   }
 
   return { results };

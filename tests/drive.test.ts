@@ -198,17 +198,49 @@ describe("play calling", () => {
     expect(passRate(short)).toBeLessThan(passRate(long));
   });
 
-  it("kicks in range, punts out of range, and goes for it when desperate", () => {
+  const options = (fieldGoalProbability = 0.75) => ({
+    fieldGoalRange: 35,
+    fieldGoalProbability,
+    expectedPuntDistance: 42,
+  });
+
+  /** Most common decision over many rolls, since coaches carry a random bias. */
+  const usualDecision = (gameSituation: GameSituation, fieldGoalProbability?: number) => {
     const rng = new SeededRng(2);
-    expect(caller.callFourthDown(situation({ down: 4, yardsToGoal: 20, yardsToFirstDown: 9 }), 35, rng).action).toBe("fieldGoal");
-    expect(caller.callFourthDown(situation({ down: 4, yardsToGoal: 80, yardsToFirstDown: 9 }), 35, rng).action).toBe("punt");
+    const tally: Record<string, number> = {};
+    for (let i = 0; i < 400; i++) {
+      const action = caller.callFourthDown(gameSituation, options(fieldGoalProbability), rng).action;
+      tally[action] = (tally[action] ?? 0) + 1;
+    }
+    return Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+
+  it("kicks a makeable field goal rather than punting from range", () => {
+    expect(usualDecision(situation({ down: 4, yardsToGoal: 20, yardsToFirstDown: 9 }))).toBe("fieldGoal");
+  });
+
+  it("punts from deep in its own half on fourth and long", () => {
+    expect(usualDecision(situation({ down: 4, yardsToGoal: 80, yardsToFirstDown: 12 }))).toBe("punt");
+  });
+
+  it("goes for it when a field goal cannot close the gap late", () => {
     expect(
-      caller.callFourthDown(
-        situation({ down: 4, yardsToGoal: 70, yardsToFirstDown: 6, scoreDifferential: -14, secondsRemaining: 100 }),
-        35,
-        rng,
-      ).action,
+      usualDecision(
+        situation({
+          down: 4,
+          yardsToGoal: 70,
+          yardsToFirstDown: 3,
+          scoreDifferential: -14,
+          secondsRemaining: 100,
+        }),
+      ),
     ).toBe("go");
+  });
+
+  it("prefers going for it over a field goal the kicker is unlikely to make", () => {
+    const longAttempt = situation({ down: 4, yardsToGoal: 34, yardsToFirstDown: 1 });
+    expect(usualDecision(longAttempt, 0.25)).toBe("go");
+    expect(usualDecision(longAttempt, 0.95)).toBe("fieldGoal");
   });
 });
 

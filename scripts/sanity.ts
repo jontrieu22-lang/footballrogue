@@ -9,6 +9,7 @@ import { generateLeague } from "../src/generators/leagueGenerator.js";
 import { generatePlayer, resetPlayerIdCounter } from "../src/generators/playerGenerator.js";
 import { resetTeamIdCounter } from "../src/generators/teamGenerator.js";
 import { computeTeamUnits } from "../src/sim/units.js";
+import { developTeam } from "../src/progression/aiDevelopment.js";
 import { SeededRng } from "../src/rng.js";
 import { scheduleSeason, simulateSeason } from "../src/sim/season.js";
 import type { Position } from "../src/types.js";
@@ -95,6 +96,30 @@ function schemeFitValue(): number {
   return run(FITS) - run(FIGHTS);
 }
 
+/**
+ * Wins gained by spending a season's development points versus hoarding them.
+ * If this reaches zero, the skill trees have stopped mattering.
+ */
+function developmentValue(): number {
+  const run = (spend: boolean) => {
+    let wins = 0;
+    for (let seed = 1; seed <= SEASONS; seed++) {
+      resetPlayerIdCounter();
+      resetTeamIdCounter();
+      const league = generateLeague(new SeededRng(seed), 32);
+      const team = league.teams[0]!;
+      scheduleSeason(league, 17);
+      simulateSeason(league, new SeededRng(seed * 7919), { humanTeamId: team.id });
+      if (spend) developTeam(team);
+      for (const other of league.teams) other.record = { wins: 0, losses: 0, ties: 0 };
+      simulateSeason(league, new SeededRng(seed * 7919), { humanTeamId: team.id });
+      wins += team.record.wins;
+    }
+    return wins / SEASONS;
+  };
+  return run(true) - run(false);
+}
+
 console.log(`Seasons simulated:     ${SEASONS}`);
 console.log(`Games simulated:       ${scores.length / 2}`);
 console.log(`Avg points/team/game:  ${average(scores).toFixed(1)}   [NFL reference: ~22]`);
@@ -108,3 +133,4 @@ console.log(`\nDo decisions matter?`);
 console.log(`Roster quality spread:  sd ${Math.sqrt(average(ratings.map((r) => (r - average(ratings)) ** 2))).toFixed(2)} on mean ${average(ratings).toFixed(1)}`);
 console.log(`Corr(rating, wins):     ${correlation(ratings, winTotals).toFixed(3)}   [NFL reference: ~0.6-0.7]`);
 console.log(`Scheme fit worth:       ${schemeFitValue().toFixed(2)} wins/season   [target: ~2]`);
+console.log(`Development worth:      ${developmentValue().toFixed(2)} wins/season   [target: ~1.5]`);

@@ -213,16 +213,48 @@ construction a real decision — building a whole roster for its schemes
 rather than against them is currently worth ~1.6 wins per season,
 tracked by `npm run sanity` so it can't silently regress to zero.
 
-**Skill trees** are per-position, unlocked with Franchise Points
-earned from that player's in-game performance (a QB who throws for
-300 yards earns his own points toward his tree, separate from the
-team pool). Trees are shallow but branching — 3–4 tiers, with each
-tier offering 2–3 mutually exclusive nodes so players specialize
-(e.g., a WR chooses between a "Route Technician" branch (better vs.
-zone) and a "Deep Threat" branch (better vs. man)), which is what
-lets individual players counter specific opposing schemes.
+### 6.2 Skill trees
+
+Every position has a three-tier tree. Each tier offers mutually
+exclusive choices and you take one per tier, in order, so players
+specialize rather than eventually collecting everything — a receiver
+becomes a Route Technician *or* a Deep Threat, and which is right
+depends on the scheme he plays in.
+
+Nodes add flat bonuses to the attributes the sim already reads, so a
+spent point flows straight through unit ratings into the play engine
+and onto the scoreboard. Bonuses are stored precomputed on the player
+and applied by `getAttribute`, which means no other system has to know
+skill trees exist. Costs are 80 / 200 / 380.
+
+Development is worth about **1.75 wins a season** over leaving the
+points unspent — tracked by `npm run sanity`.
 
 ## 7. Economy: Franchise Points
+
+### 7.1 Earning development, and why it is EPA
+
+A drive is worth the expected points the offense gained minus what the
+defense took away. That netting is what pays for development: each unit
+is scored against what an average unit produces, and the score is routed
+to the players who actually filled it.
+
+Using expected points rather than yardage matters most on defense,
+which generates no counting statistics of its own. A defense earns from
+the EPA it **denied**, which is exactly the negative of what the
+opposing offense gained — so holding a good offense to +2 instead of +7
+is worth real development even with an empty stat line. Verified in the
+sim: defensive EPA is precisely the negative of the opponent's
+offensive EPA on every game, and net EPA alone picks the winner of 96%
+of games (correlation with point margin 0.98).
+
+Contribution is shared by role, compressed by a square root so a
+quarterback develops fastest without leaving five linemen splitting one
+group's weight stuck at zero. Healthy players who never crack the depth
+chart still earn a small amount, so a roster can grow its own
+replacements.
+
+### 7.2 Two pools
 
 Two point pools, deliberately separate:
 
@@ -338,6 +370,8 @@ Current output:
 | Tie rate | 0.2% | ~0.4% |
 | Corr(roster rating, wins) | 0.69 | ~0.6–0.7 |
 | Most valuable position | QB, 2.4x the next | QB, clearly first |
+| Scheme fit worth | 3.1 wins/season | — |
+| Development worth | 1.75 wins/season | — |
 
 ## 11. MVP Roadmap
 
@@ -347,8 +381,9 @@ Current output:
    field position, kicking, play calling (§10).~~ **Done.**
 3. ~~**Schemes**: counter matrix plus scheme fit via rating
    reweighting (§6).~~ **Done.**
-4. **Skill trees**: spendable Player/Team points that move the
-   attributes the sim already reads.
+4. ~~**Skill trees**: spendable development points that move the
+   attributes the sim already reads, earned from expected points
+   added (§6.2, §7.1).~~ **Done.**
 5. **Draft & trades**: offseason phase, procedural draft class
    generator, AI trade logic.
 6. **Playable UI**: React front end — roster and player cards, play

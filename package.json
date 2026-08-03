@@ -10,7 +10,8 @@
     "cards": "tsx scripts/cards.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "value": "tsx scripts/value.ts"
+    "value": "tsx scripts/value.ts",
+    "develop": "tsx scripts/develop.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

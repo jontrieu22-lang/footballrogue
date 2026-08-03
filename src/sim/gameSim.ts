@@ -28,6 +28,13 @@ export interface TeamGameStats {
   rushYards: number;
   sacksAllowed: number;
   timeOfPossession: number;
+  /** Expected points added by this team's own offense, split by unit. */
+  passEpa: number;
+  rushEpa: number;
+  kickEpa: number;
+  /** Expected points this team's defense denied — the negative of what the opponent gained. */
+  passDefenseEpa: number;
+  rushDefenseEpa: number;
 }
 
 export interface GameResult {
@@ -51,6 +58,11 @@ function emptyStats(): TeamGameStats {
     rushYards: 0,
     sacksAllowed: 0,
     timeOfPossession: 0,
+    passEpa: 0,
+    rushEpa: 0,
+    kickEpa: 0,
+    passDefenseEpa: 0,
+    rushDefenseEpa: 0,
   };
 }
 
@@ -89,6 +101,14 @@ function recordDrive(side: SideState, opponent: SideState, drive: DriveResult): 
   side.stats.drives += 1;
   side.stats.playsRun += drive.playsRun;
   side.stats.timeOfPossession += drive.clockSeconds;
+
+  // The offense banks what it gained; the defense is credited the negative,
+  // so the two sides of every play net out exactly.
+  side.stats.passEpa += drive.passEpa;
+  side.stats.rushEpa += drive.rushEpa;
+  side.stats.kickEpa += drive.kickEpa;
+  opponent.stats.passDefenseEpa -= drive.passEpa;
+  opponent.stats.rushDefenseEpa -= drive.rushEpa;
 
   for (const play of drive.plays) {
     if (play.sacked) {

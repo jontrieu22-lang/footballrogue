@@ -153,6 +153,44 @@ export function computeUnitRating(roster: Player[], spec: UnitSpec, scheme?: Sch
   return totalWeight === 0 ? 0 : total / totalWeight;
 }
 
+export interface UnitContribution {
+  player: Player;
+  /** Fraction of the unit this player accounts for; shares sum to 1. */
+  share: number;
+}
+
+/**
+ * Who actually played in a unit, and how much of it they were. Used to route
+ * a unit's expected points added back to the players who generated it, so
+ * development is earned rather than handed out.
+ */
+export function computeUnitContributions(
+  roster: Player[],
+  spec: UnitSpec,
+  scheme?: SchemeId,
+): UnitContribution[] {
+  const contributions: UnitContribution[] = [];
+
+  for (const group of spec) {
+    const ranked = roster
+      .filter((p) => p.position === group.position && isAvailable(p))
+      .map((player) => ({ player, score: attributeScore(player, group.attributes, scheme) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, group.starters);
+
+    if (ranked.length === 0) continue;
+    // Split the group's weight evenly among the starters who filled it.
+    const perPlayer = group.weight / ranked.length;
+    for (const { player } of ranked) {
+      contributions.push({ player, share: perPlayer });
+    }
+  }
+
+  const total = contributions.reduce((sum, c) => sum + c.share, 0);
+  if (total === 0) return contributions;
+  return contributions.map((c) => ({ ...c, share: c.share / total }));
+}
+
 export interface TeamUnitRatings {
   passOffense: number;
   rushOffense: number;
