@@ -8,7 +8,7 @@
 import { generateLeague } from "../src/generators/leagueGenerator.js";
 import { generatePlayer, resetPlayerIdCounter } from "../src/generators/playerGenerator.js";
 import { resetTeamIdCounter } from "../src/generators/teamGenerator.js";
-import { computeDefenseRating, computeOffenseRating } from "../src/models/team.js";
+import { computeTeamUnits } from "../src/sim/units.js";
 import { SeededRng } from "../src/rng.js";
 import { scheduleSeason, simulateSeason } from "../src/sim/season.js";
 import type { Position } from "../src/types.js";
@@ -36,7 +36,10 @@ for (let seed = 1; seed <= SEASONS; seed++) {
   // Push both from the same iteration so rating and wins stay paired per team.
   for (const team of league.teams) {
     winTotals.push(team.record.wins);
-    ratings.push(computeOffenseRating(team) + computeDefenseRating(team));
+    const units = computeTeamUnits(team);
+    ratings.push(
+      units.passOffense + units.rushOffense + units.passDefense + units.rushDefense,
+    );
   }
 }
 

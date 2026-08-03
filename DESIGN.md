@@ -260,21 +260,103 @@ game-loss randomness:
 - Bye-week scouting opportunities (peek at an upcoming draft prospect)
 - Injury variance beyond the direct in-game sim
 
-## 10. MVP Roadmap
+## 10. Simulation Engine
 
-1. **Sim core**: headless TS engine — Player/Team/League models, a
-   deterministic-but-seedable game simulator (drive-by-drive, not
-   snap-by-snap yet), season scheduler, standings.
-2. **Playable loop**: minimal React UI — roster view, simple
-   play-calling during games (choose a play archetype each drive),
-   season progression, box scores.
-3. **Skill trees & schemes**: attribute-driven sim outcomes, scheme
-   counter matrix, spendable Player/Team points.
-4. **Draft & trades**: offseason phase, procedural draft class
+A win is the sum of value produced per drive, exactly as it sounds: play
+possessions until the clock runs out, add up the points, higher total
+wins. What makes that meaningful is how each drive resolves.
+
+### 10.1 Unit ratings
+
+Rather than one offense number against one defense number, the sim
+computes four ratings from the attributes that actually do each job, on
+the players who actually do it:
+
+| Unit | Built from |
+|---|---|
+| Pass offense | QB accuracy/power/awareness, WR route running & hands, OL pass block, TE |
+| Rush offense | OL run block, RB break tackle/vision, TE blocking, QB legs |
+| Pass defense | CB/S coverage, DL pass rush, LB coverage |
+| Rush defense | DL block shedding & strength, LB tackling & pursuit, S tackling |
+
+Players are ranked *for the job in question*, so the passing game uses
+the best receivers by receiving ability rather than by overall rating.
+Scheme emphasis (§6.1) applies here too.
+
+This is what lets the sim tell *how* a team is good, not just how much.
+An elite quarterback lifts every pass play; an elite tight end moves a
+slice of two units. Before this existed, an elite QB was worth the same
+as an elite corner, and kickers were worth literally nothing.
+
+### 10.2 Drive resolution
+
+Each possession runs downs and distance from a real field position:
+
+- Play type comes from the play caller (§10.3).
+- **Pass** resolves sack → interception → completion → yards, with
+  right-skewed gains so most plays are short and a few are explosive.
+- **Run** resolves fumble → yards.
+- Reaching the end zone scores 6 plus an extra-point attempt; a fourth
+  down becomes a field goal, a punt, or a snap.
+- **Field position carries across possessions.** A turnover hands the
+  opponent the ball where it happened, which is what makes a turnover
+  cost something rather than being a slower punt.
+- Kickers and punters have real jobs: `kickPower` sets field-goal range,
+  `kickAccuracy` sets make probability, and punt distance decides the
+  field the defense inherits.
+
+### 10.3 Play calling
+
+Scheme sets a baseline pass rate (Air Raid 68%, Power Run 42%), and
+situation moves it — trailing late throws, leading late runs, short
+yardage runs. Fourth downs weigh field-goal range against distance and
+game state.
+
+`PlayCaller` is an interface. The AI implementation drives every team
+today; a human-controlled team drops in without touching the drive
+engine.
+
+### 10.4 Emergent consequences
+
+Because drives consume real clock, possession counts are *not* fixed —
+they emerge from how teams play. A run-heavy offense bleeds clock and
+shortens the game for both sides, so Power Run gains a genuine identity
+beyond a lookup-table modifier.
+
+### 10.5 Calibration
+
+`npm run sanity` checks the sim against real NFL rates, and
+`npm run value` checks that positional value has the right shape.
+Current output:
+
+| Measure | Sim | NFL |
+|---|---|---|
+| Points per team per game | 22.5 | ~22 |
+| Total yards | 350 | ~345 |
+| Plays | 59 | ~63 |
+| Sacks allowed | 2.4 | ~2.3 |
+| Tie rate | 0.2% | ~0.4% |
+| Corr(roster rating, wins) | 0.69 | ~0.6–0.7 |
+| Most valuable position | QB, 2.4x the next | QB, clearly first |
+
+## 11. MVP Roadmap
+
+1. ~~**Sim core**: headless engine — models, game simulator, scheduler,
+   standings.~~ **Done.**
+2. ~~**Matchup-driven simulation**: unit ratings, play-by-play drives,
+   field position, kicking, play calling (§10).~~ **Done.**
+3. ~~**Schemes**: counter matrix plus scheme fit via rating
+   reweighting (§6).~~ **Done.**
+4. **Skill trees**: spendable Player/Team points that move the
+   attributes the sim already reads.
+5. **Draft & trades**: offseason phase, procedural draft class
    generator, AI trade logic.
-5. **Roguelike meta layer**: permadeath injuries, firing/run-end
+6. **Playable UI**: React front end — roster and player cards, play
+   calling during games, season progression, box scores.
+7. **Roguelike meta layer**: permadeath injuries, firing/run-end
    conditions, cross-run meta-progression and difficulty scaling.
 
-Each phase should be playable end-to-end before moving to the next —
-phase 1+2 alone is already a "simulate a season" toy; phase 5 is what
-turns it into the pitched game.
+Each phase should be playable end-to-end before moving to the next.
+The UI sits late deliberately: it is cheaper to validate that decisions
+change outcomes with a measurement script than to rebuild a front end
+every time the systems underneath it move.

@@ -1,15 +1,21 @@
-import { computeDefenseRating, computeOffenseRating, type Team } from "../models/team.js";
+import type { Team } from "../models/team.js";
 import type { SeededRng } from "../rng.js";
 import { getSchemeMultiplier } from "../schemes.js";
+import { simulateDrive, type DriveResult } from "./drive.js";
+import { getKicker, getPunter, type Kicker } from "./kicking.js";
+import { AiPlayCaller, type PlayCaller } from "./playCalling.js";
+import { computeTeamUnits, type TeamUnitRatings } from "./units.js";
 
-const POSSESSIONS_PER_TEAM = 12;
-const HOME_FIELD_BONUS = 2;
-/**
- * Overtime periods played before a game is allowed to end tied. Each period
- * gives both teams one possession. Tuned so the league-wide tie rate lands
- * near the real NFL's (~0.4%) — verify with `npm run sanity` after changing.
- */
+const REGULATION_SECONDS = 3600;
+const OVERTIME_SECONDS = 600;
 const MAX_OVERTIME_PERIODS = 3;
+const TOUCHBACK_YARDS_TO_GOAL = 75;
+
+/**
+ * Home advantage, applied to the home offense's unit ratings. Small, because
+ * the drive engine compounds it across every play of the game.
+ */
+const HOME_FIELD_BONUS = 1.5;
 
 export interface TeamGameStats {
   points: number;
@@ -17,6 +23,11 @@ export interface TeamGameStats {
   fieldGoals: number;
   turnovers: number;
   drives: number;
+  playsRun: number;
+  passYards: number;
+  rushYards: number;
+  sacksAllowed: number;
+  timeOfPossession: number;
 }
 
 export interface GameResult {
@@ -28,76 +39,157 @@ export interface GameResult {
   overtimePeriods: number;
 }
 
-interface DriveOutcome {
-  points: 0 | 3 | 7;
-  turnover: boolean;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function simulateDrive(offenseRating: number, defenseRating: number, rng: SeededRng): DriveOutcome {
-  const ratingDiff = offenseRating - defenseRating;
-  const scoreProb = clamp(0.42 + ratingDiff / 150, 0.15, 0.75);
-
-  if (rng.chance(scoreProb)) {
-    const touchdownShare = clamp(0.58 + ratingDiff / 300, 0.35, 0.8);
-    return { points: rng.chance(touchdownShare) ? 7 : 3, turnover: false };
-  }
-
-  const turnoverProb = clamp(0.18 - ratingDiff / 300, 0.06, 0.3);
-  return { points: 0, turnover: rng.chance(turnoverProb) };
-}
-
 function emptyStats(): TeamGameStats {
-  return { points: 0, touchdowns: 0, fieldGoals: 0, turnovers: 0, drives: 0 };
+  return {
+    points: 0,
+    touchdowns: 0,
+    fieldGoals: 0,
+    turnovers: 0,
+    drives: 0,
+    playsRun: 0,
+    passYards: 0,
+    rushYards: 0,
+    sacksAllowed: 0,
+    timeOfPossession: 0,
+  };
 }
 
-function applyDrive(stats: TeamGameStats, outcome: DriveOutcome): void {
-  stats.drives += 1;
-  stats.points += outcome.points;
-  if (outcome.points === 7) stats.touchdowns += 1;
-  if (outcome.points === 3) stats.fieldGoals += 1;
-  if (outcome.turnover) stats.turnovers += 1;
+function applyHomeBonus(units: TeamUnitRatings): TeamUnitRatings {
+  return {
+    passOffense: units.passOffense + HOME_FIELD_BONUS,
+    rushOffense: units.rushOffense + HOME_FIELD_BONUS,
+    passDefense: units.passDefense + HOME_FIELD_BONUS,
+    rushDefense: units.rushDefense + HOME_FIELD_BONUS,
+  };
 }
 
 /**
- * Simulates one game drive-by-drive. Each team's offense rating is adjusted
- * by their scheme's matchup multiplier against the opponent's defensive
- * scheme (see schemes.ts) plus a small home-field bonus.
+ * The scheme matchup table (how your scheme counters theirs) scales the
+ * offense's unit ratings. Scheme *fit* is already baked into the unit ratings
+ * themselves — see DESIGN.md §6.1.
  */
-export function simulateGame(home: Team, away: Team, rng: SeededRng): GameResult {
-  const homeOffenseBase = computeOffenseRating(home) + HOME_FIELD_BONUS;
-  const awayOffenseBase = computeOffenseRating(away);
-  const homeDefense = computeDefenseRating(home) + HOME_FIELD_BONUS;
-  const awayDefense = computeDefenseRating(away);
+function applyMatchup(units: TeamUnitRatings, multiplier: number): TeamUnitRatings {
+  return {
+    ...units,
+    passOffense: units.passOffense * multiplier,
+    rushOffense: units.rushOffense * multiplier,
+  };
+}
 
-  const homeOffenseEffective = homeOffenseBase * getSchemeMultiplier(home.scheme.offense, away.scheme.defense);
-  const awayOffenseEffective = awayOffenseBase * getSchemeMultiplier(away.scheme.offense, home.scheme.defense);
+interface SideState {
+  team: Team;
+  units: TeamUnitRatings;
+  stats: TeamGameStats;
+  kicker: Kicker;
+  punter: Kicker;
+  playCaller: PlayCaller;
+}
 
-  const homeStats = emptyStats();
-  const awayStats = emptyStats();
+function recordDrive(side: SideState, opponent: SideState, drive: DriveResult): void {
+  side.stats.drives += 1;
+  side.stats.playsRun += drive.playsRun;
+  side.stats.timeOfPossession += drive.clockSeconds;
 
-  for (let possession = 0; possession < POSSESSIONS_PER_TEAM; possession++) {
-    applyDrive(homeStats, simulateDrive(homeOffenseEffective, awayDefense, rng));
-    applyDrive(awayStats, simulateDrive(awayOffenseEffective, homeDefense, rng));
+  for (const play of drive.plays) {
+    if (play.sacked) {
+      side.stats.sacksAllowed += 1;
+      side.stats.passYards += play.yards;
+    } else if (play.type === "pass") {
+      side.stats.passYards += play.yards;
+    } else {
+      side.stats.rushYards += play.yards;
+    }
   }
 
-  // Overtime: both teams get a possession each period, so a period can still
-  // end level. Games that survive every period stay tied, as in the NFL.
+  if (drive.outcome === "touchdown") side.stats.touchdowns += 1;
+  if (drive.outcome === "fieldGoal") side.stats.fieldGoals += 1;
+  if (drive.outcome === "turnover") side.stats.turnovers += 1;
+
+  if (drive.points >= 0) {
+    side.stats.points += drive.points;
+  } else {
+    // A safety scores for the defense.
+    opponent.stats.points += -drive.points;
+  }
+}
+
+function buildSide(team: Team, opponent: Team, isHome: boolean): SideState {
+  const base = computeTeamUnits(team);
+  const withHome = isHome ? applyHomeBonus(base) : base;
+  const matchup = getSchemeMultiplier(team.scheme.offense, opponent.scheme.defense);
+
+  return {
+    team,
+    units: applyMatchup(withHome, matchup),
+    stats: emptyStats(),
+    kicker: getKicker(team.roster),
+    punter: getPunter(team.roster),
+    playCaller: new AiPlayCaller(),
+  };
+}
+
+/**
+ * Plays possessions alternately until the clock runs out. Because drives take
+ * variable real time, possession counts emerge from how the teams play — a
+ * run-heavy offense bleeds clock and shortens the game for both sides.
+ */
+function playPeriod(
+  first: SideState,
+  second: SideState,
+  totalSeconds: number,
+  rng: SeededRng,
+): void {
+  let secondsRemaining = totalSeconds;
+  let offense = first;
+  let defense = second;
+  let yardsToGoal = TOUCHBACK_YARDS_TO_GOAL;
+
+  while (secondsRemaining > 0) {
+    const drive = simulateDrive(
+      {
+        offense: offense.units,
+        defense: defense.units,
+        scheme: offense.team.scheme.offense,
+        playCaller: offense.playCaller,
+        kicker: offense.kicker,
+        punter: offense.punter,
+        startingYardsToGoal: yardsToGoal,
+        scoreDifferential: offense.stats.points - defense.stats.points,
+        secondsRemaining,
+      },
+      rng,
+    );
+
+    recordDrive(offense, defense, drive);
+    secondsRemaining -= Math.max(drive.clockSeconds, 1);
+    yardsToGoal = drive.nextFieldPosition;
+
+    const nextOffense = defense;
+    defense = offense;
+    offense = nextOffense;
+  }
+}
+
+export function simulateGame(home: Team, away: Team, rng: SeededRng): GameResult {
+  const homeSide = buildSide(home, away, true);
+  const awaySide = buildSide(away, home, false);
+
+  playPeriod(awaySide, homeSide, REGULATION_SECONDS, rng);
+
   let overtimePeriods = 0;
-  while (homeStats.points === awayStats.points && overtimePeriods < MAX_OVERTIME_PERIODS) {
-    applyDrive(homeStats, simulateDrive(homeOffenseEffective, awayDefense, rng));
-    applyDrive(awayStats, simulateDrive(awayOffenseEffective, homeDefense, rng));
+  while (homeSide.stats.points === awaySide.stats.points && overtimePeriods < MAX_OVERTIME_PERIODS) {
+    // Alternate who receives first each period.
+    const receiving = overtimePeriods % 2 === 0 ? homeSide : awaySide;
+    const kicking = receiving === homeSide ? awaySide : homeSide;
+    playPeriod(receiving, kicking, OVERTIME_SECONDS, rng);
     overtimePeriods++;
   }
 
   return {
     homeTeamId: home.id,
     awayTeamId: away.id,
-    home: homeStats,
-    away: awayStats,
+    home: homeSide.stats,
+    away: awaySide.stats,
     overtimePeriods,
   };
 }
