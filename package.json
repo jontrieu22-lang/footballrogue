@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "demo": "tsx src/index.ts",
+    "sanity": "tsx scripts/sanity.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

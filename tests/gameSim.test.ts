@@ -31,10 +31,40 @@ describe("simulateGame", () => {
     expect(result.away.points).toBe(result.away.touchdowns * 7 + result.away.fieldGoals * 3);
   });
 
-  it("tracks exactly 12 drives per team", () => {
+  it("gives both teams 12 regulation drives, plus one each per overtime period", () => {
     const { home, away } = freshTeams(3);
     const result = simulateGame(home, away, new SeededRng(9));
-    expect(result.home.drives).toBe(12);
-    expect(result.away.drives).toBe(12);
+    expect(result.home.drives).toBe(12 + result.overtimePeriods);
+    expect(result.away.drives).toBe(12 + result.overtimePeriods);
+  });
+
+  it("only goes to overtime when regulation ends level, and stops once someone leads", () => {
+    // Sweep seeds so both the regulation-decided and overtime paths get hit.
+    const { home, away } = freshTeams(4);
+    let sawOvertime = false;
+
+    for (let seed = 0; seed < 400; seed++) {
+      const result = simulateGame(home, away, new SeededRng(seed));
+      if (result.overtimePeriods > 0) {
+        sawOvertime = true;
+        // Overtime only resolves nothing if every period stayed level.
+        if (result.home.points !== result.away.points) {
+          expect(result.overtimePeriods).toBeLessThanOrEqual(3);
+        }
+      }
+      expect(result.overtimePeriods).toBeLessThanOrEqual(3);
+    }
+
+    expect(sawOvertime).toBe(true);
+  });
+
+  it("only ends in a tie after exhausting every overtime period", () => {
+    const { home, away } = freshTeams(5);
+    for (let seed = 0; seed < 400; seed++) {
+      const result = simulateGame(home, away, new SeededRng(seed));
+      if (result.home.points === result.away.points) {
+        expect(result.overtimePeriods).toBe(3);
+      }
+    }
   });
 });

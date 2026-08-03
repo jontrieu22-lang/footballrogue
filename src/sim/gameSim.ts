@@ -4,6 +4,12 @@ import { getSchemeMultiplier } from "../schemes.js";
 
 const POSSESSIONS_PER_TEAM = 12;
 const HOME_FIELD_BONUS = 2;
+/**
+ * Overtime periods played before a game is allowed to end tied. Each period
+ * gives both teams one possession. Tuned so the league-wide tie rate lands
+ * near the real NFL's (~0.4%) — verify with `npm run sanity` after changing.
+ */
+const MAX_OVERTIME_PERIODS = 3;
 
 export interface TeamGameStats {
   points: number;
@@ -18,6 +24,8 @@ export interface GameResult {
   awayTeamId: string;
   home: TeamGameStats;
   away: TeamGameStats;
+  /** 0 for a game decided in regulation. */
+  overtimePeriods: number;
 }
 
 interface DriveOutcome {
@@ -76,5 +84,20 @@ export function simulateGame(home: Team, away: Team, rng: SeededRng): GameResult
     applyDrive(awayStats, simulateDrive(awayOffenseEffective, homeDefense, rng));
   }
 
-  return { homeTeamId: home.id, awayTeamId: away.id, home: homeStats, away: awayStats };
+  // Overtime: both teams get a possession each period, so a period can still
+  // end level. Games that survive every period stay tied, as in the NFL.
+  let overtimePeriods = 0;
+  while (homeStats.points === awayStats.points && overtimePeriods < MAX_OVERTIME_PERIODS) {
+    applyDrive(homeStats, simulateDrive(homeOffenseEffective, awayDefense, rng));
+    applyDrive(awayStats, simulateDrive(awayOffenseEffective, homeDefense, rng));
+    overtimePeriods++;
+  }
+
+  return {
+    homeTeamId: home.id,
+    awayTeamId: away.id,
+    home: homeStats,
+    away: awayStats,
+    overtimePeriods,
+  };
 }
