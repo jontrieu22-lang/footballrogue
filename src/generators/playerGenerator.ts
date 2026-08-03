@@ -98,7 +98,7 @@ export function generatePlayer(
     potential: clamp(rng.gaussian(65 + qualityBias + talent, 13), 40, ATTRIBUTE_MAX),
     unlockedNodeIds: [],
     skillBonuses: {},
-    health: { status: "healthy", injuryHistory: [] },
+    health: { status: "healthy", weeksOut: 0, injuryHistory: [] },
     developmentPoints: 0,
   };
 }

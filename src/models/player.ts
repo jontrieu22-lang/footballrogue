@@ -7,10 +7,15 @@ import {
   type PositionalAttributeKey,
 } from "./attributes.js";
 
+export type HealthStatus = "healthy" | "questionable" | "out" | "career-ending";
+export type InjurySeverity = "minor" | "major" | "career-ending";
+
 export interface Injury {
+  season: number;
   week: number;
   description: string;
-  severity: "minor" | "major" | "career-ending";
+  severity: InjurySeverity;
+  weeksOut: number;
 }
 
 export interface Player {
@@ -35,7 +40,9 @@ export interface Player {
    */
   skillBonuses: Partial<Record<AttributeKey, number>>;
   health: {
-    status: "healthy" | "questionable" | "out" | "career-ending";
+    status: HealthStatus;
+    /** Games still to be missed; 0 when available. */
+    weeksOut: number;
     injuryHistory: Injury[];
   };
   developmentPoints: number;
