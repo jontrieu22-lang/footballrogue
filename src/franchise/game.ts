@@ -23,6 +23,7 @@ import type { League } from "../models/league.js";
 import type { Team } from "../models/team.js";
 import { advanceRecovery, rollInjuries, type InjuryEvent } from "../progression/injuries.js";
 import { awardDevelopmentPoints } from "../progression/development.js";
+import { advanceFamiliarity } from "../progression/familiarity.js";
 import { developTeam } from "../progression/aiDevelopment.js";
 import { SeededRng } from "../rng.js";
 import { simulateGame, type GameResult } from "../sim/gameSim.js";
@@ -215,6 +216,12 @@ export function playWeek(session: GameSession): WeekResult {
     const result = simulateGame(home, away, rng);
     games.push(result);
     applyResult(home, away, result);
+
+    // Teams gain fluency in what they actually ran and lose it in what they
+    // neglected. The human's weekly game plan (Step 6) overrides the schemes
+    // played here; until then everyone plays their season scheme.
+    advanceFamiliarity(home, home.scheme.offense, home.scheme.defense);
+    advanceFamiliarity(away, away.scheme.offense, away.scheme.defense);
 
     awardDevelopmentPoints(home, result.home);
     awardDevelopmentPoints(away, result.away);

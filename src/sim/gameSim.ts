@@ -89,8 +89,23 @@ function applyHomeBonus(units: TeamUnitRatings): TeamUnitRatings {
  * The scheme matchup table (how your scheme counters theirs) scales the
  * offense's unit ratings. Scheme *fit* is already baked into the unit ratings
  * themselves — see DESIGN.md §6.1.
+ *
+ * Familiarity dampens the matchup through the side that executes it — the
+ * offense. The multiplier is an offense-side concept (it scales the offense's
+ * units), so how much of the table's edge applies is gated by the offense's
+ * fluency in its own scheme: a half-learned offense can't fully exploit a
+ * favourable matchup (raw > 1) and, being less committed to the scheme's
+ * tell-tale concepts, is also less hurt by an unfavourable one (raw < 1). An
+ * unpracticed scheme plays vanilla — the matchup table has no effect on it at
+ * all. Defensive fluency shows up through the fit already baked into the
+ * defensive unit ratings.
  */
-function applyMatchup(units: TeamUnitRatings, multiplier: number): TeamUnitRatings {
+export function applyMatchup(
+  units: TeamUnitRatings,
+  rawMultiplier: number,
+  offenseFamiliarity: number,
+): TeamUnitRatings {
+  const multiplier = 1 + (rawMultiplier - 1) * offenseFamiliarity;
   return {
     ...units,
     passOffense: units.passOffense * multiplier,
@@ -211,11 +226,11 @@ function buildSide(
   // for its season scheme loses fit when a weekly plan switches schemes.
   const base = computeTeamUnitsFor(team, plan.offense, plan.defense);
   const withHome = isHome ? applyHomeBonus(base) : base;
-  const matchup = getSchemeMultiplier(plan.offense, opponentDefense);
+  const rawMatchup = getSchemeMultiplier(plan.offense, opponentDefense);
 
   return {
     team,
-    units: applyMatchup(withHome, matchup),
+    units: applyMatchup(withHome, rawMatchup, team.familiarity[plan.offense]),
     stats: emptyStats(),
     kicker: getKicker(team.roster),
     punter: getPunter(team.roster),

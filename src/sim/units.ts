@@ -108,12 +108,14 @@ export const RUSH_DEFENSE: UnitSpec = [
 /**
  * A player's score for one job. Scheme emphasis multiplies the attribute
  * weights, so the same roster rates differently depending on what its scheme
- * asks for — see DESIGN.md §6.1.
+ * asks for — see DESIGN.md §6.1. `familiarity` blends that emphasis toward
+ * neutral (see computeOverall in models/player.ts).
  */
 function attributeScore(
   player: Player,
   attributes: Partial<Record<AttributeKey, number>>,
   scheme?: SchemeId,
+  familiarity = 1,
 ): number {
   let weightedSum = 0;
   let totalWeight = 0;
@@ -121,7 +123,8 @@ function attributeScore(
   for (const [key, baseWeight] of Object.entries(attributes) as [AttributeKey, number][]) {
     const value = getAttribute(player, key);
     if (value === undefined) continue;
-    const weight = scheme === undefined ? baseWeight : baseWeight * schemeWeightFor(scheme, key);
+    const multiplier = scheme === undefined ? 1 : schemeWeightFor(scheme, key);
+    const weight = baseWeight * (1 + (multiplier - 1) * familiarity);
     weightedSum += value * weight;
     totalWeight += weight;
   }
@@ -138,14 +141,19 @@ function isAvailable(player: Player): boolean {
  * job*, so the pass offense uses the best receivers by receiving ability
  * rather than by overall rating.
  */
-export function computeUnitRating(roster: Player[], spec: UnitSpec, scheme?: SchemeId): number {
+export function computeUnitRating(
+  roster: Player[],
+  spec: UnitSpec,
+  scheme?: SchemeId,
+  familiarity = 1,
+): number {
   let total = 0;
   let totalWeight = 0;
 
   for (const group of spec) {
     const scores = roster
       .filter((p) => p.position === group.position && isAvailable(p))
-      .map((p) => attributeScore(p, group.attributes, scheme))
+      .map((p) => attributeScore(p, group.attributes, scheme, familiarity))
       .sort((a, b) => b - a)
       .slice(0, group.starters);
 
@@ -207,7 +215,8 @@ export interface TeamUnitRatings {
  * Rates the roster in explicit schemes. The weekly game plan overrides the
  * season scheme per game, and a roster built for one scheme rates lower in
  * another — that loss of fit is what makes counter-picking a trade rather
- * than a free lunch.
+ * than a free lunch. Ratings are blended by the team's familiarity with each
+ * scheme, so an unpracticed scheme plays close to neutral.
  */
 export function computeTeamUnitsFor(
   team: Team,
@@ -215,10 +224,10 @@ export function computeTeamUnitsFor(
   defense: DefenseSchemeId,
 ): TeamUnitRatings {
   return {
-    passOffense: computeUnitRating(team.roster, PASS_OFFENSE, offense),
-    rushOffense: computeUnitRating(team.roster, RUSH_OFFENSE, offense),
-    passDefense: computeUnitRating(team.roster, PASS_DEFENSE, defense),
-    rushDefense: computeUnitRating(team.roster, RUSH_DEFENSE, defense),
+    passOffense: computeUnitRating(team.roster, PASS_OFFENSE, offense, team.familiarity[offense]),
+    rushOffense: computeUnitRating(team.roster, RUSH_OFFENSE, offense, team.familiarity[offense]),
+    passDefense: computeUnitRating(team.roster, PASS_DEFENSE, defense, team.familiarity[defense]),
+    rushDefense: computeUnitRating(team.roster, RUSH_DEFENSE, defense, team.familiarity[defense]),
   };
 }
 

@@ -10,6 +10,7 @@ import { generatePlayer, resetPlayerIdCounter } from "../src/generators/playerGe
 import { resetTeamIdCounter } from "../src/generators/teamGenerator.js";
 import { computeTeamUnits } from "../src/sim/units.js";
 import { developTeam } from "../src/progression/aiDevelopment.js";
+import { initialFamiliarity } from "../src/progression/familiarity.js";
 import { SeededRng } from "../src/rng.js";
 import { scheduleSeason, simulateSeason } from "../src/sim/season.js";
 import type { Position } from "../src/types.js";
@@ -81,6 +82,10 @@ function schemeFitValue(): number {
       const league = generateLeague(new SeededRng(seed), 32);
       const team = league.teams[0]!;
       team.scheme = { offense: "powerRun", defense: "cover2Zone" };
+      // The gate measures a team fully committed to its scheme — a full season
+      // of running it keeps familiarity at 1.0, so rate it as such rather than
+      // at the film-study floor of an identity it has never practiced.
+      team.familiarity = initialFamiliarity("powerRun", "cover2Zone");
       const rng = new SeededRng(seed * 104729);
       team.roster = team.roster.map((p) => {
         const archetypeId = plan[p.position];

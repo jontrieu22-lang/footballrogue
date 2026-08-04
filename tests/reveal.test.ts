@@ -23,7 +23,13 @@ function freshTeam(seed: number) {
 
 /** A distinct identity for a team cloned from another, without a fresh roster. */
 function cloneAs(team: ReturnType<typeof generateTeam>, id: string, name: string) {
-  return { ...team, id, name, coach: { ...team.coach, id: `${id}-coach` } };
+  return {
+    ...team,
+    id,
+    name,
+    coach: { ...team.coach, id: `${id}-coach` },
+    familiarity: { ...team.familiarity },
+  };
 }
 
 describe("resolveReveal", () => {
@@ -134,6 +140,12 @@ describe("counter-picking through the sim", () => {
     const teamB = cloneAs(base, "tb", "B");
 
     const counter = counterPlan(teamB.scheme.offense, teamB.scheme.defense);
+    // Step 4 familiarity: a counter pays off when the team has practiced it,
+    // not when it runs an unfamiliar scheme cold against an equal full-fit
+    // opponent. Give A the counter's fluency so the matchup edge shows.
+    teamA.familiarity[counter.offense] = 1;
+    teamA.familiarity[counter.defense] = 1;
+
     let blindWins = 0;
     let counterWins = 0;
     const games = 100;
@@ -162,5 +174,44 @@ describe("counter-picking through the sim", () => {
     }
 
     expect(counterWins / games).toBeGreaterThan(blindWins / games + 0.1);
+  });
+
+  it("does not hand a free win to a counter run cold (unpracticed scheme)", () => {
+    const base = freshTeam(4);
+    const teamA = cloneAs(base, "ta", "A");
+    const teamB = cloneAs(base, "tb", "B");
+
+    const counter = counterPlan(teamB.scheme.offense, teamB.scheme.defense);
+    // teamA's familiarity for the counter scheme sits at the film-study floor:
+    // its matchup edge is damped, so an unpracticed counter is not a license
+    // to steal wins from an equal, fully committed opponent.
+    let blindWins = 0;
+    let counterWins = 0;
+    const games = 100;
+
+    for (let i = 0; i < games; i++) {
+      const aHome = i % 2 === 0;
+      const rng = new SeededRng(i);
+      const blind = aHome
+        ? simulateGame(teamA, teamB, rng)
+        : simulateGame(teamB, teamA, rng);
+      const countered = aHome
+        ? simulateGame(teamA, teamB, new SeededRng(i + 10_000), {
+            home: { offense: counter.offense, defense: counter.defense },
+          })
+        : simulateGame(teamB, teamA, new SeededRng(i + 10_000), {
+            away: { offense: counter.offense, defense: counter.defense },
+          });
+
+      const aPoints = (r: { home: { points: number }; away: { points: number } }) =>
+        aHome ? r.home.points : r.away.points;
+      const bPoints = (r: { home: { points: number }; away: { points: number } }) =>
+        aHome ? r.away.points : r.home.points;
+
+      if (aPoints(blind) > bPoints(blind)) blindWins++;
+      if (aPoints(countered) > bPoints(countered)) counterWins++;
+    }
+
+    expect(counterWins / games).toBeLessThan(blindWins / games + 0.15);
   });
 });

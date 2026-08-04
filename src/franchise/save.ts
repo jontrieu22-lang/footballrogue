@@ -1,5 +1,6 @@
 import type { GameSession } from "./game.js";
 import { generateCoach } from "../generators/coachGenerator.js";
+import { initialFamiliarity } from "../progression/familiarity.js";
 
 /**
  * A run is plain data — no class instances, no Maps — so it round-trips
@@ -74,6 +75,12 @@ function normalizeSession(session: GameSession): void {
     if (team.coach?.experience !== undefined) continue;
     const experience = team.id === session.franchise.teamId ? 0 : undefined;
     team.coach = generateCoach(team.id, experience);
+  }
+  // Familiarity arrived later still. Backfill from the team's season scheme,
+  // which is what every team was playing when the save was written.
+  for (const team of session.league?.teams ?? []) {
+    if (team.familiarity !== undefined) continue;
+    team.familiarity = initialFamiliarity(team.scheme.offense, team.scheme.defense);
   }
 }
 

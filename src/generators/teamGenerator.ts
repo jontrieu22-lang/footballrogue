@@ -10,6 +10,7 @@ import {
 import { generateCoach } from "./coachGenerator.js";
 import { generatePlayerName, generateTeamName } from "./names.js";
 import { generatePlayer } from "./playerGenerator.js";
+import { initialFamiliarity } from "../progression/familiarity.js";
 
 /** Roster composition — 52 players, roughly mirroring a real NFL roster's position mix. */
 const ROSTER_COMPOSITION: Record<Position, number> = {
@@ -73,12 +74,19 @@ export function generateTeam(rng: SeededRng, options: GenerateTeamOptions = {}):
   }
 
   const id = `t${nextTeamId++}`;
+  // Draw order matters: the name precedes the scheme picks, matching the
+  // pre-familiarity stream so seeded leagues (and sanity's baselines) are
+  // unchanged. Familiarity is derived from the scheme afterwards.
+  const name = generateTeamName(rng);
+  const offense = rng.pick(OFFENSE_SCHEMES);
+  const defense = rng.pick(DEFENSE_SCHEMES);
   return {
     id,
-    name: generateTeamName(rng),
+    name,
     roster,
-    scheme: { offense: rng.pick(OFFENSE_SCHEMES), defense: rng.pick(DEFENSE_SCHEMES) },
+    scheme: { offense, defense },
     coach: generateCoach(id),
+    familiarity: initialFamiliarity(offense, defense),
     franchisePoints: STARTING_FRANCHISE_POINTS,
     draftPicks: [],
     record: { wins: 0, losses: 0, ties: 0 },

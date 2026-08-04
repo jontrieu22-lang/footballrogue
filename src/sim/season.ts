@@ -5,6 +5,7 @@ import { simulateGame, type GameResult } from "./gameSim.js";
 import { generateSchedule } from "./schedule.js";
 import { awardDevelopmentPoints } from "../progression/development.js";
 import { developTeam } from "../progression/aiDevelopment.js";
+import { advanceFamiliarity } from "../progression/familiarity.js";
 
 export function scheduleSeason(league: League, totalWeeks: number): void {
   league.schedule = generateSchedule(
@@ -72,6 +73,13 @@ export function simulateSeason(
     const result = simulateGame(home, away, rng);
     results.push(result);
     applyResult(home, away, result);
+
+    // Teams gain fluency in what they actually ran and lose it in what they
+    // neglected. The weekly plan (Step 6) overrides the scheme a team runs,
+    // so the human's flow calls advanceFamiliarity with the played plan;
+    // AI teams and full-season sims always play their season schemes.
+    advanceFamiliarity(home, home.scheme.offense, home.scheme.defense);
+    advanceFamiliarity(away, away.scheme.offense, away.scheme.defense);
 
     if (awardDevelopment) {
       awardDevelopmentPoints(home, result.home);

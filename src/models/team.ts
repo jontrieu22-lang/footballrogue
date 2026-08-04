@@ -1,6 +1,6 @@
 import type { Coach } from "./coach.js";
-import type { SchemeId } from "../schemes.js";
 import type { DefenseSchemeId, OffenseSchemeId, Position } from "../types.js";
+import type { SchemeId } from "../schemes.js";
 import { computeOverall, type Player } from "./player.js";
 
 export interface DraftPick {
@@ -17,6 +17,13 @@ export interface Team {
   scheme: { offense: OffenseSchemeId; defense: DefenseSchemeId };
   /** Who runs this team; experience drives the weekly read roll (see sim/reveal.ts). */
   coach: Coach;
+  /**
+   * How fluent the team is in each scheme, 0-1. The season schemes start at
+   * full; running a scheme raises its familiarity, neglecting it decays
+   * toward the floor. Familiarity scales how much of the scheme's fit and
+   * matchup benefits apply — see progression/familiarity.ts.
+   */
+  familiarity: Record<SchemeId, number>;
   franchisePoints: number;
   draftPicks: DraftPick[];
   record: { wins: number; losses: number; ties: number };

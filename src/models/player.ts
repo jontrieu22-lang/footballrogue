@@ -84,8 +84,14 @@ export function getAttribute(player: RatedPlayer, key: AttributeKey): number | u
  * returns the player's rating *in that scheme*; omitting it returns their
  * true rating. Nothing is written back — switching scheme changes how a
  * player performs, not who they are.
+ *
+ * `familiarity` (0-1) scales how much of the scheme's reweighting applies:
+ * a scheme a team knows (1) reproduces the full scheme rating, an unknown
+ * scheme (0) falls back to neutral weights, and anything between blends.
+ * The default keeps every caller that means "rating in this scheme" — draft
+ * scouting, the scheme matrix, progression — on full-scheme behaviour.
  */
-export function computeOverall(player: RatedPlayer, scheme?: SchemeId): number {
+export function computeOverall(player: RatedPlayer, scheme?: SchemeId, familiarity = 1): number {
   const weights = POSITION_OVERALL_WEIGHTS[player.position];
   let weightedSum = 0;
   let totalWeight = 0;
@@ -93,7 +99,8 @@ export function computeOverall(player: RatedPlayer, scheme?: SchemeId): number {
   for (const [key, baseWeight] of Object.entries(weights) as [AttributeKey, number][]) {
     const value = getAttribute(player, key);
     if (value === undefined) continue;
-    const weight = scheme === undefined ? baseWeight : baseWeight * schemeWeightFor(scheme, key);
+    const multiplier = scheme === undefined ? 1 : schemeWeightFor(scheme, key);
+    const weight = baseWeight * (1 + (multiplier - 1) * familiarity);
     weightedSum += value * weight;
     totalWeight += weight;
   }
