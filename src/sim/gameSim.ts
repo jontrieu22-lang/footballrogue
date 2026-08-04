@@ -7,6 +7,8 @@ import { AiPlayCaller, type PlayCaller } from "./playCalling.js";
 import { computeTeamUnits, type TeamUnitRatings } from "./units.js";
 
 const REGULATION_SECONDS = 3600;
+/** Regulation is played as two halves; the clock and field position reset between them. */
+const HALF_SECONDS = REGULATION_SECONDS / 2;
 const OVERTIME_SECONDS = 600;
 const MAX_OVERTIME_PERIODS = 3;
 const TOUCHBACK_YARDS_TO_GOAL = 75;
@@ -194,7 +196,14 @@ export function simulateGame(home: Team, away: Team, rng: SeededRng): GameResult
   const homeSide = buildSide(home, away, true);
   const awaySide = buildSide(away, home, false);
 
-  playPeriod(awaySide, homeSide, REGULATION_SECONDS, rng);
+  // First half: the away team receives the opening kickoff, so the home
+  // team kicked off to open.
+  playPeriod(awaySide, homeSide, HALF_SECONDS, rng);
+  // Second half: real football gives the second-half kickoff to the side
+  // that kicked off to open, so the home team receives and field position
+  // resets. Without this split, the away team received every kickoff and
+  // gained ~0.5 extra possessions per game.
+  playPeriod(homeSide, awaySide, HALF_SECONDS, rng);
 
   let overtimePeriods = 0;
   while (homeSide.stats.points === awaySide.stats.points && overtimePeriods < MAX_OVERTIME_PERIODS) {
