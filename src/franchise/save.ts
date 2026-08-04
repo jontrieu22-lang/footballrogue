@@ -26,6 +26,48 @@ export type LoadResult =
   | { ok: true; session: GameSession }
   | { ok: false; reason: string };
 
+/**
+ * Scans the ids that already exist so an old save — written before the run
+ * carried its own id cursor — can resume minting after the largest one rather
+ * than colliding with it.
+ */
+function cursorFromExisting(session: GameSession): { player: number; team: number } {
+  let playerMax = 0;
+  let teamMax = 0;
+  const note = (id: string, prefix: string) => {
+    if (!id.startsWith(prefix)) return;
+    const value = Number(id.slice(prefix.length));
+    if (!Number.isFinite(value)) return;
+    if (prefix === "p" && value > playerMax) playerMax = value;
+    if (prefix === "t" && value > teamMax) teamMax = value;
+  };
+
+  for (const team of session.league?.teams ?? []) {
+    note(team.id, "t");
+    for (const player of team.roster ?? []) note(player.id, "p");
+  }
+  for (const prospect of session.draftClass?.prospects ?? []) {
+    note(prospect.player.id, "p");
+  }
+
+  return { player: playerMax + 1, team: teamMax + 1 };
+}
+
+/** Backfills fields added after the first save format so older runs still load. */
+function normalizeSession(session: GameSession): void {
+  if (!session.franchise) return;
+  if (typeof session.franchise.schemeSwitchUsed !== "boolean") {
+    session.franchise.schemeSwitchUsed = false;
+  }
+  if (
+    !session.idCursor ||
+    typeof session.idCursor.player !== "number" ||
+    typeof session.idCursor.team !== "number"
+  ) {
+    session.idCursor = cursorFromExisting(session);
+  }
+}
+
 export function deserializeSession(raw: string): LoadResult {
   let parsed: unknown;
   try {
@@ -46,6 +88,7 @@ export function deserializeSession(raw: string): LoadResult {
     return { ok: false, reason: "Save does not contain a league" };
   }
 
+  normalizeSession(envelope.session);
   return { ok: true, session: envelope.session };
 }
 

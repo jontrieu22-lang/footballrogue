@@ -32,6 +32,20 @@ export function resetPlayerIdCounter(): void {
   nextPlayerId = 1;
 }
 
+/**
+ * The next id that will be handed out. Persisted into the run so a reloaded
+ * save resumes minting where it left off instead of colliding with the ids of
+ * players that already exist (roster lookups and draft picks key on ids).
+ */
+export function getPlayerIdCounter(): number {
+  return nextPlayerId;
+}
+
+/** Resume minting from a saved cursor (see save.ts normalization). */
+export function setPlayerIdCounter(cursor: number): void {
+  nextPlayerId = cursor;
+}
+
 export interface GeneratePlayerOptions {
   /** Shifts the whole attribute distribution up/down; used for roster tiers and draft-class strength. */
   qualityBias?: number;

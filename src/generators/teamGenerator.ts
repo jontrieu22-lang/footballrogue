@@ -33,6 +33,15 @@ export function resetTeamIdCounter(): void {
   nextTeamId = 1;
 }
 
+/** Next team id — persisted alongside the player cursor (see save.ts). */
+export function getTeamIdCounter(): number {
+  return nextTeamId;
+}
+
+export function setTeamIdCounter(cursor: number): void {
+  nextTeamId = cursor;
+}
+
 export interface GenerateTeamOptions {
   /** Shifts the whole roster's quality — the difference between a contender and a rebuild. */
   qualityBias?: number;

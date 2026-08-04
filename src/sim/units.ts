@@ -1,8 +1,13 @@
 import type { AttributeKey } from "../models/attributes.js";
 import { getAttribute, type Player } from "../models/player.js";
 import type { Team } from "../models/team.js";
-import { schemeWeightFor, type SchemeId } from "../schemes.js";
-import type { Position } from "../types.js";
+import {
+  DEFENSE_SCHEMES,
+  OFFENSE_SCHEMES,
+  schemeWeightFor,
+  type SchemeId,
+} from "../schemes.js";
+import type { DefenseSchemeId, OffenseSchemeId, Position } from "../types.js";
 
 /**
  * A unit rating answers "how good is this team at one specific job" — passing
@@ -205,6 +210,46 @@ export function computeTeamUnits(team: Team): TeamUnitRatings {
     passDefense: computeUnitRating(team.roster, PASS_DEFENSE, team.scheme.defense),
     rushDefense: computeUnitRating(team.roster, RUSH_DEFENSE, team.scheme.defense),
   };
+}
+
+export interface SchemeComboRating {
+  offense: OffenseSchemeId;
+  defense: DefenseSchemeId;
+  /** Mean of the four unit ratings — how the roster grades out in this pair. */
+  rating: number;
+  passOffense: number;
+  rushOffense: number;
+  passDefense: number;
+  rushDefense: number;
+}
+
+/**
+ * Rates the roster in every offense × defense scheme combination. Scheme fit
+ * changes *which traits count* (DESIGN.md §6.1), so the same squad is worth
+ * different amounts in each pair — this is what the preseason scheme screen
+ * shows before the player commits, and what makes choosing a scheme a real
+ * decision instead of a flavor pick.
+ */
+export function computeSchemeMatrix(team: Team): SchemeComboRating[] {
+  const rows: SchemeComboRating[] = [];
+  for (const offense of OFFENSE_SCHEMES) {
+    for (const defense of DEFENSE_SCHEMES) {
+      const passOffense = computeUnitRating(team.roster, PASS_OFFENSE, offense);
+      const rushOffense = computeUnitRating(team.roster, RUSH_OFFENSE, offense);
+      const passDefense = computeUnitRating(team.roster, PASS_DEFENSE, defense);
+      const rushDefense = computeUnitRating(team.roster, RUSH_DEFENSE, defense);
+      rows.push({
+        offense,
+        defense,
+        passOffense,
+        rushOffense,
+        passDefense,
+        rushDefense,
+        rating: (passOffense + rushOffense + passDefense + rushDefense) / 4,
+      });
+    }
+  }
+  return rows;
 }
 
 /** Best available player at a position for a given job — used for kicking and punting. */

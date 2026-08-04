@@ -9,6 +9,16 @@ import {
   type DraftState,
 } from "../draft/draft.js";
 import { generateLeague } from "../generators/leagueGenerator.js";
+import {
+  getPlayerIdCounter,
+  resetPlayerIdCounter,
+  setPlayerIdCounter,
+} from "../generators/playerGenerator.js";
+import {
+  getTeamIdCounter,
+  resetTeamIdCounter,
+  setTeamIdCounter,
+} from "../generators/teamGenerator.js";
 import type { League } from "../models/league.js";
 import type { Team } from "../models/team.js";
 import { advanceRecovery, rollInjuries, type InjuryEvent } from "../progression/injuries.js";
@@ -19,6 +29,7 @@ import { simulateGame, type GameResult } from "../sim/gameSim.js";
 import { simulatePlayoffs, type PlayoffResult } from "../sim/playoffs.js";
 import { scheduleSeason } from "../sim/season.js";
 import { computeStandings, type StandingsRow } from "../sim/standings.js";
+import type { DefenseSchemeId, OffenseSchemeId } from "../types.js";
 import {
   advanceOffseason,
   createFranchise,
@@ -29,7 +40,13 @@ import {
 
 export const REGULAR_SEASON_WEEKS = 17;
 
-export type Phase = "regularSeason" | "playoffs" | "draft" | "offseason" | "runOver";
+export type Phase =
+  | "preseason"
+  | "regularSeason"
+  | "playoffs"
+  | "draft"
+  | "offseason"
+  | "runOver";
 
 export interface WeekResult {
   week: number;
@@ -58,6 +75,11 @@ export interface GameSession {
   draftClass?: DraftClass;
   /** Advanced deliberately so a reloaded save continues the same sequence. */
   rngCursor: number;
+  /**
+   * Where id generation left off, so a reloaded save resumes minting without
+   * colliding with ids that already exist (see save.ts normalization).
+   */
+  idCursor: { player: number; team: number };
 }
 
 function rngFor(session: GameSession, salt: number): SeededRng {
@@ -65,6 +87,8 @@ function rngFor(session: GameSession, salt: number): SeededRng {
 }
 
 export function createSession(seed: number, teamId?: string, numTeams = 32): GameSession {
+  resetPlayerIdCounter();
+  resetTeamIdCounter();
   const rng = new SeededRng(seed);
   const league = generateLeague(rng, numTeams);
   scheduleSeason(league, REGULAR_SEASON_WEEKS);
@@ -74,11 +98,58 @@ export function createSession(seed: number, teamId?: string, numTeams = 32): Gam
     seed,
     league,
     franchise: createFranchise(chosen, league.season),
-    phase: "regularSeason",
+    phase: "preseason",
     week: 1,
     weekLog: [],
     rngCursor: 0,
+    idCursor: { player: getPlayerIdCounter(), team: getTeamIdCounter() },
   };
+}
+
+/** Kicks off the first season after the preseason scheme pick. */
+export function startSeason(session: GameSession): void {
+  if (session.phase !== "preseason") {
+    throw new Error(`Cannot start a season during the ${session.phase} phase`);
+  }
+  session.phase = "regularSeason";
+  session.week = 1;
+}
+
+/** Picks the franchise's scheme pair. Applies immediately — the sim reads it next play. */
+export function setTeamScheme(
+  session: GameSession,
+  offense: OffenseSchemeId,
+  defense: DefenseSchemeId,
+): void {
+  const team = yourTeam(session);
+  team.scheme.offense = offense;
+  team.scheme.defense = defense;
+}
+
+/**
+ * One mid-season re-fit per year is allowed, and it spends a patience point —
+ * the player's health bar — so switching away from a bad scheme is a real
+ * decision rather than a free re-roll.
+ */
+export function midseasonSwitchAvailable(session: GameSession): boolean {
+  return (
+    session.phase === "regularSeason" &&
+    !session.franchise.schemeSwitchUsed &&
+    session.franchise.patience > 0
+  );
+}
+
+export function switchSchemeMidseason(
+  session: GameSession,
+  offense: OffenseSchemeId,
+  defense: DefenseSchemeId,
+): void {
+  if (!midseasonSwitchAvailable(session)) {
+    throw new Error("No mid-season scheme switch available");
+  }
+  session.franchise.patience -= 1;
+  session.franchise.schemeSwitchUsed = true;
+  setTeamScheme(session, offense, defense);
 }
 
 export function yourTeam(session: GameSession): Team {
@@ -200,12 +271,18 @@ export function beginDraft(session: GameSession): DraftState {
   }
 
   const rng = rngFor(session, session.rngCursor++);
+  // A reloaded run must resume minting ids where it left off: a fresh page
+  // starts the module counters at 1, and without the stored cursor a drafted
+  // rookie would receive an id that already belongs to someone in the league.
+  setPlayerIdCounter(session.idCursor?.player ?? 1);
+  setTeamIdCounter(session.idCursor?.team ?? 1);
   const draftClass = generateDraftClass(rng, session.league.season + 1, session.franchise.scoutingTier);
   const state = startDraft(session.league, draftClass);
 
   session.draftClass = draftClass;
   session.draft = state;
   runDraftUntil(session.league, state, session.franchise.teamId);
+  session.idCursor = { player: getPlayerIdCounter(), team: getTeamIdCounter() };
   return state;
 }
 
@@ -251,10 +328,18 @@ export function startNextSeason(session: GameSession): void {
   }
 
   const rng = rngFor(session, session.rngCursor++);
-  advanceOffseason(session.league, rng);
+  // Drafted rookies are not aged until their first full season: the offseason
+  // pass runs immediately after the draft, and their draft-day age is the one
+  // they should play the year with.
+  const rookieIds = new Set<string>();
+  if (session.draft) {
+    for (const pick of session.draft.picks) rookieIds.add(pick.playerId);
+  }
+  advanceOffseason(session.league, rng, rookieIds);
   scheduleSeason(session.league, REGULAR_SEASON_WEEKS);
 
   session.franchise.season = session.league.season;
+  session.franchise.schemeSwitchUsed = false;
   session.week = 1;
   session.weekLog = [];
   session.phase = "regularSeason";

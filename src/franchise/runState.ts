@@ -43,6 +43,8 @@ export interface FranchiseState {
   /** Rises with success; raises what ownership expects next year. */
   reputation: number;
   scoutingTier: number;
+  /** Whether this season's one mid-season scheme re-fit has been used. */
+  schemeSwitchUsed: boolean;
   history: SeasonRecord[];
   status: "active" | "fired";
   /** Set when the run ends, for the summary screen. */
@@ -56,6 +58,7 @@ export function createFranchise(teamId: string, season = 1): FranchiseState {
     patience: STARTING_PATIENCE,
     reputation: 0,
     scoutingTier: 0,
+    schemeSwitchUsed: false,
     history: [],
     status: "active",
   };
@@ -223,8 +226,15 @@ export function trimRoster(team: Team): Player[] {
 /**
  * Rolls the league into the next season: injuries heal except the permanent
  * ones, players age, and the old and the broken leave the game.
+ *
+ * `exemptPlayerIds` skips the ageing pass — used for players drafted this very
+ * offseason, whose draft-day age is their playing age until next year.
  */
-export function advanceOffseason(league: League, rng: SeededRng): OffseasonReport {
+export function advanceOffseason(
+  league: League,
+  rng: SeededRng,
+  exemptPlayerIds?: ReadonlySet<string>,
+): OffseasonReport {
   const retired: OffseasonReport["retired"] = [];
   const cut: OffseasonReport["cut"] = [];
 
@@ -240,6 +250,11 @@ export function advanceOffseason(league: League, rng: SeededRng): OffseasonRepor
           position: player.position,
           reason: "career-ending injury",
         });
+        continue;
+      }
+
+      if (exemptPlayerIds?.has(player.id)) {
+        survivors.push(player);
         continue;
       }
 

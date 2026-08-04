@@ -11,16 +11,23 @@ import {
   loadFromBrowser,
   saveToBrowser,
 } from "../../src/franchise/save.js";
-import { resetPlayerIdCounter } from "../../src/generators/playerGenerator.js";
-import { resetTeamIdCounter } from "../../src/generators/teamGenerator.js";
+import {
+  resetPlayerIdCounter,
+  setPlayerIdCounter,
+} from "../../src/generators/playerGenerator.js";
+import {
+  resetTeamIdCounter,
+  setTeamIdCounter,
+} from "../../src/generators/teamGenerator.js";
 import { SCHEME_LABELS } from "../../src/schemes.js";
 import { computeTeamUnits } from "../../src/sim/units.js";
 import { DraftScreen } from "./DraftScreen.js";
 import { ReviewScreen, RunOverScreen } from "./EndScreens.js";
 import { RosterScreen } from "./RosterScreen.js";
+import { SchemeSelectScreen } from "./SchemeSelect.js";
 import { SeasonScreen } from "./SeasonScreen.js";
 
-type Stage = "start" | "pickTeam" | "play";
+type Stage = "start" | "pickTeam" | "preseason" | "play";
 type Tab = "season" | "roster" | "draft";
 
 export default function App() {
@@ -49,9 +56,13 @@ export default function App() {
   const continueRun = () => {
     const loaded = loadFromBrowser();
     if (loaded.ok) {
+      // A fresh page starts the module id counters at 1; the run's stored
+      // cursor must win, or minting new players would collide with old ids.
+      setPlayerIdCounter(loaded.session.idCursor?.player ?? 1);
+      setTeamIdCounter(loaded.session.idCursor?.team ?? 1);
       setSession(loaded.session);
-      setStage("play");
-      setTab("season");
+      setStage(loaded.session.phase === "preseason" ? "preseason" : "play");
+      setTab(loaded.session.phase === "draft" ? "draft" : "season");
     }
   };
 
@@ -113,8 +124,7 @@ export default function App() {
               onClick={() => {
                 session.franchise.teamId = team.id;
                 saveToBrowser(session);
-                setStage("play");
-                setTab("season");
+                setStage("preseason");
               }}
             >
               <span className="team-rank">#{index + 1}</span>
@@ -127,6 +137,20 @@ export default function App() {
           ))}
         </div>
       </div>
+    );
+  }
+
+  if (stage === "preseason") {
+    return (
+      <SchemeSelectScreen
+        session={session}
+        act={act}
+        onStart={() => {
+          setStage("play");
+          setTab("season");
+        }}
+        onAbandon={abandonRun}
+      />
     );
   }
 

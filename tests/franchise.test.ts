@@ -3,9 +3,13 @@ import {
   beginDraft,
   createSession,
   finishDraft,
+  midseasonSwitchAvailable,
   playPlayoffs,
   playWeek,
+  setTeamScheme,
   startNextSeason,
+  startSeason,
+  switchSchemeMidseason,
   yourTeam,
   REGULAR_SEASON_WEEKS,
   type GameSession,
@@ -27,6 +31,7 @@ import { rollInjuries, advanceRecovery, healOffseason } from "../src/progression
 import { generateLeague } from "../src/generators/leagueGenerator.js";
 import { generateTeam, resetTeamIdCounter } from "../src/generators/teamGenerator.js";
 import { generatePlayer, resetPlayerIdCounter } from "../src/generators/playerGenerator.js";
+import { computeSchemeMatrix, computeTeamUnits } from "../src/sim/units.js";
 import { SeededRng } from "../src/rng.js";
 import { scheduleSeason, simulateSeason } from "../src/sim/season.js";
 import { computeOverall } from "../src/models/player.js";
@@ -289,8 +294,133 @@ describe("run state", () => {
   });
 });
 
+describe("preseason and scheme agency", () => {
+  it("starts in preseason and lets the player pick the scheme pair before week one", () => {
+    fresh();
+    const session = createSession(73);
+    expect(session.phase).toBe("preseason");
+    expect(() => playWeek(session)).toThrow();
+
+    const team = yourTeam(session);
+    setTeamScheme(session, "airRaid", "blitzMan");
+    expect(team.scheme).toEqual({ offense: "airRaid", defense: "blitzMan" });
+
+    startSeason(session);
+    expect(session.phase).toBe("regularSeason");
+    expect(() => playWeek(session)).not.toThrow();
+  });
+
+  it("rates the roster in every scheme combination, current pair included", () => {
+    fresh();
+    const session = createSession(71);
+    const team = yourTeam(session);
+    const rows = computeSchemeMatrix(team);
+
+    expect(rows).toHaveLength(16);
+    const current = rows.find(
+      (row) => row.offense === team.scheme.offense && row.defense === team.scheme.defense,
+    );
+    expect(current).toBeDefined();
+
+    // The current cell must agree with the unit ratings the sim actually uses,
+    // or the matrix is lying about the roster's real value.
+    const units = computeTeamUnits(team);
+    expect(current?.passOffense).toBeCloseTo(units.passOffense, 5);
+    expect(current?.rushDefense).toBeCloseTo(units.rushDefense, 5);
+
+    const best = rows.reduce((a, b) => (b.rating > a.rating ? b : a));
+    expect(best.rating).toBeGreaterThanOrEqual(current?.rating ?? 0);
+  });
+
+  it("charges one patience for a mid-season scheme switch, once per season", () => {
+    fresh();
+    const session = createSession(77);
+    startSeason(session);
+    const before = session.franchise.patience;
+    expect(midseasonSwitchAvailable(session)).toBe(true);
+
+    switchSchemeMidseason(session, "westCoast", "cover2Zone");
+    expect(yourTeam(session).scheme).toEqual({ offense: "westCoast", defense: "cover2Zone" });
+    expect(session.franchise.patience).toBe(before - 1);
+    expect(session.franchise.schemeSwitchUsed).toBe(true);
+    expect(midseasonSwitchAvailable(session)).toBe(false);
+    expect(() => switchSchemeMidseason(session, "rpo", "base43")).toThrow();
+
+    // The next season reopens the window.
+    session.phase = "draft";
+    startNextSeason(session);
+    expect(midseasonSwitchAvailable(session)).toBe(true);
+  });
+});
+
+describe("id integrity", () => {
+  function collectIds(session: GameSession): string[] {
+    const ids: string[] = [];
+    for (const team of session.league.teams) {
+      for (const player of team.roster) ids.push(player.id);
+    }
+    // The draft class keeps every prospect, picked or not; the unpicked pool is
+    // the ones not already sitting on a roster.
+    for (const prospect of session.draft?.available ?? []) ids.push(prospect.player.id);
+    return ids;
+  }
+
+  it("resumes minting after a reload instead of duplicating ids", () => {
+    fresh();
+    const session = createSession(61);
+    session.phase = "draft";
+    beginDraft(session);
+    const before = collectIds(session);
+    expect(new Set(before).size).toBe(before.length);
+
+    // A fresh page restarts the module counters at 1 while the run persists —
+    // exactly the state that used to mint duplicate ids on the next draft.
+    const restored = deserializeSession(serializeSession(session));
+    resetPlayerIdCounter();
+    resetTeamIdCounter();
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+
+    const restoredSession = restored.session;
+    delete restoredSession.draft;
+    delete restoredSession.draftClass;
+    beginDraft(restoredSession);
+
+    // The restored run now carries veterans, the first draft's picks, and the
+    // second class — every id must be unique, which the stored cursor is what
+    // guarantees. Without it the reset counter would mint p1… over old ids.
+    const after = collectIds(restoredSession);
+    expect(new Set(after).size).toBe(after.length);
+  });
+
+  it("does not age players drafted this offseason until next season", () => {
+    fresh();
+    const session = createSession(63);
+    session.phase = "draft";
+    beginDraft(session);
+    finishDraft(session);
+
+    const draftedIds = new Set(session.draft?.picks.map((pick) => pick.playerId) ?? []);
+    const agesBefore = new Map<string, number>();
+    for (const team of session.league.teams) {
+      for (const player of team.roster) agesBefore.set(player.id, player.age);
+    }
+
+    startNextSeason(session);
+
+    for (const team of session.league.teams) {
+      for (const player of team.roster) {
+        if (draftedIds.has(player.id)) {
+          expect(player.age).toBe(agesBefore.get(player.id));
+        }
+      }
+    }
+  });
+});
+
 describe("full franchise loop", () => {
   function playSeason(session: GameSession) {
+    startSeason(session);
     for (let week = 1; week <= REGULAR_SEASON_WEEKS; week++) playWeek(session);
     return playPlayoffs(session);
   }
@@ -322,6 +452,7 @@ describe("full franchise loop", () => {
   it("refuses to play a week outside the regular season", () => {
     fresh();
     const session = createSession(53);
+    startSeason(session);
     for (let week = 1; week <= REGULAR_SEASON_WEEKS; week++) playWeek(session);
     expect(session.phase).toBe("playoffs");
     expect(() => playWeek(session)).toThrow();
@@ -330,6 +461,7 @@ describe("full franchise loop", () => {
   it("survives a save and load mid-run", () => {
     fresh();
     const session = createSession(57);
+    startSeason(session);
     for (let week = 1; week <= 5; week++) playWeek(session);
 
     const restored = deserializeSession(serializeSession(session));

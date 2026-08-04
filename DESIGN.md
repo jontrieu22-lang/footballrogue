@@ -384,13 +384,16 @@ Current output:
 4. ~~**Skill trees**: spendable development points that move the
    attributes the sim already reads, earned from expected points
    added (§6.2, §7.1).~~ **Done.**
-5. **Draft & trades**: offseason phase, procedural draft class
-   generator, AI trade logic.
+5. **Draft & trades**: ~~offseason phase, procedural draft class
+   generator~~ **Draft done.** AI trade logic still to come.
 6. ~~**Playable UI**: React front end (`web/`, `npm run ui`) — team
    select, week-by-week season with standings and injuries, roster
    with player cards and skill spending, draft room, ownership
-   review, run-over screen, autosave to localStorage.~~ **Done**
-   (play calling during games still sim-controlled — a later layer).
+   review, run-over screen, autosave to localStorage.~~ **Done.**
+   Preseason scheme selection (every offense × defense pair rated
+   against your roster) and one mid-season scheme switch at a
+   patience cost are in; play calling during games is still
+   sim-controlled — a later layer.
 7. **Roguelike meta layer**: permadeath injuries, firing/run-end
    conditions, cross-run meta-progression and difficulty scaling.
 

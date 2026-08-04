@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  midseasonSwitchAvailable,
   playWeek,
   standings,
   yourTeam,
@@ -7,6 +9,7 @@ import {
 } from "../../src/franchise/game.js";
 import { expectedWins, MAX_PATIENCE } from "../../src/franchise/runState.js";
 import { PLAYOFF_TEAMS } from "../../src/sim/playoffs.js";
+import { MidseasonSchemePicker } from "./SchemeSelect.js";
 
 export function Patience({ value }: { value: number }) {
   return (
@@ -31,6 +34,8 @@ export function SeasonScreen({
   const lastWeek = session.weekLog[session.weekLog.length - 1];
   const target = expectedWins(session.franchise);
   const inSeason = session.phase === "regularSeason";
+  const [showSchemeSwitch, setShowSchemeSwitch] = useState(false);
+  const canSwitch = midseasonSwitchAvailable(session);
 
   const yourInjuries = lastWeek?.injuries.filter((i) => i.teamId === team.id) ?? [];
 
@@ -77,6 +82,21 @@ export function SeasonScreen({
             >
               Sim to Season End
             </button>
+            {canSwitch && (
+              <button
+                className="btn"
+                onClick={() => setShowSchemeSwitch((open) => !open)}
+              >
+                Change Scheme (−1 patience)
+              </button>
+            )}
+            {showSchemeSwitch && (
+              <MidseasonSchemePicker
+                session={session}
+                act={act}
+                onClose={() => setShowSchemeSwitch(false)}
+              />
+            )}
             {session.phase === "playoffs" && (
               <button className="btn primary" onClick={onPlayoffs}>
                 Play the Postseason
