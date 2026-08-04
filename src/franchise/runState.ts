@@ -42,7 +42,6 @@ export interface FranchiseState {
   patience: number;
   /** Rises with success; raises what ownership expects next year. */
   reputation: number;
-  scoutingTier: number;
   /** Whether this season's one mid-season scheme re-fit has been used. */
   schemeSwitchUsed: boolean;
   history: SeasonRecord[];
@@ -57,7 +56,6 @@ export function createFranchise(teamId: string, season = 1): FranchiseState {
     season,
     patience: STARTING_PATIENCE,
     reputation: 0,
-    scoutingTier: 0,
     schemeSwitchUsed: false,
     history: [],
     status: "active",

@@ -1,16 +1,26 @@
 import { useReducer, useState } from "react";
 import {
   createSession,
+  pickTeam,
   playPlayoffs,
+  runLegacy,
   yourTeam,
   type GameSession,
 } from "../../src/franchise/game.js";
 import {
   clearBrowserSave,
   hasBrowserSave,
+  loadCoachProfileFromBrowser,
   loadFromBrowser,
+  saveCoachProfileToBrowser,
   saveToBrowser,
 } from "../../src/franchise/save.js";
+import {
+  createCoachProfile,
+  mergeRunIntoProfile,
+  tierForExperience,
+  type CoachProfile,
+} from "../../src/franchise/coachProfile.js";
 import {
   resetPlayerIdCounter,
   setPlayerIdCounter,
@@ -33,6 +43,9 @@ type Tab = "season" | "roster" | "draft";
 export default function App() {
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [session, setSession] = useState<GameSession | null>(null);
+  const [coachProfile, setCoachProfile] = useState<CoachProfile | undefined>(() =>
+    loadCoachProfileFromBrowser(),
+  );
   const [stage, setStage] = useState<Stage>("start");
   const [tab, setTab] = useState<Tab>("season");
   const [reviewPending, setReviewPending] = useState(false);
@@ -49,8 +62,33 @@ export default function App() {
     resetPlayerIdCounter();
     resetTeamIdCounter();
     const seed = Number(seedInput) || Math.floor(Math.random() * 2 ** 31);
-    setSession(createSession(seed));
+    const created = createSession(seed, undefined, 32, coachProfile);
+    // A first-ever run has no profile yet; the hire is the coach's identity.
+    if (!coachProfile) {
+      const fresh = createCoachProfile(yourTeam(created).coach.name);
+      setCoachProfile(fresh);
+      saveCoachProfileToBrowser(fresh);
+    }
+    setSession(created);
     setStage("pickTeam");
+  };
+
+  /**
+   * Ends a run and folds it into the coach's career (Step 5): firing ends the
+   * franchise — patience, reputation, that team's history — but the coach
+   * carries their seasons, record, and rings into the next run.
+   */
+  const endRun = () => {
+    if (session) {
+      const merged = mergeRunIntoProfile(coachProfile ?? createCoachProfile("Coach"), runLegacy(session));
+      setCoachProfile(merged);
+      saveCoachProfileToBrowser(merged);
+    }
+    clearBrowserSave();
+    setSession(null);
+    setReviewPending(false);
+    setStage("start");
+    setTab("season");
   };
 
   const continueRun = () => {
@@ -66,19 +104,20 @@ export default function App() {
     }
   };
 
-  const abandonRun = () => {
-    clearBrowserSave();
-    setSession(null);
-    setReviewPending(false);
-    setStage("start");
-    setTab("season");
-  };
-
   if (stage === "start" || !session) {
     return (
       <div className="app center-screen">
         <h1 className="title">FOOTBALL ROGUE</h1>
         <p className="subtitle">One franchise. Ownership is not patient.</p>
+        {coachProfile && (
+          <p className="muted">
+            Coach {coachProfile.name} — {coachProfile.careerRecord.wins}-
+            {coachProfile.careerRecord.losses}-
+            {coachProfile.careerRecord.ties} career, {coachProfile.championships}{" "}
+            {coachProfile.championships === 1 ? "ring" : "rings"},{" "}
+            {coachProfile.experience} seasons, Scouting T{tierForExperience(coachProfile.experience)}.
+          </p>
+        )}
         <div className="start-actions">
           <input
             className="seed-input"
@@ -122,7 +161,7 @@ export default function App() {
               key={team.id}
               className="team-pick"
               onClick={() => {
-                session.franchise.teamId = team.id;
+                pickTeam(session, team.id);
                 saveToBrowser(session);
                 setStage("preseason");
               }}
@@ -149,7 +188,7 @@ export default function App() {
           setStage("play");
           setTab("season");
         }}
-        onAbandon={abandonRun}
+        onAbandon={endRun}
       />
     );
   }
@@ -167,7 +206,11 @@ export default function App() {
   }
 
   if (session.phase === "runOver") {
-    return <RunOverScreen session={session} onNewRun={abandonRun} />;
+    const career = mergeRunIntoProfile(
+      coachProfile ?? createCoachProfile(yourTeam(session).coach.name),
+      runLegacy(session),
+    );
+    return <RunOverScreen session={session} career={career} onNewRun={endRun} />;
   }
 
   const effectiveTab: Tab = tab === "draft" && session.phase !== "draft" ? "season" : tab;
@@ -178,7 +221,8 @@ export default function App() {
       <header className="topbar">
         <span className="brand">FOOTBALL ROGUE</span>
         <span className="you">
-          {team.name} · Season {session.franchise.season}
+          {team.name} · Season {session.franchise.season} · Coach {team.coach.name} (Scouting T
+          {tierForExperience(team.coach.experience)})
         </span>
         <nav>
           <button
@@ -202,7 +246,7 @@ export default function App() {
             </button>
           )}
         </nav>
-        <button className="btn small danger" onClick={abandonRun}>
+        <button className="btn small danger" onClick={endRun}>
           Abandon
         </button>
       </header>

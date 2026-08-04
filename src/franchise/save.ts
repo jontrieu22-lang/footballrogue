@@ -1,4 +1,5 @@
 import type { GameSession } from "./game.js";
+import type { CoachProfile } from "./coachProfile.js";
 import { generateCoach } from "../generators/coachGenerator.js";
 import { initialFamiliarity } from "../progression/familiarity.js";
 
@@ -6,8 +7,12 @@ import { initialFamiliarity } from "../progression/familiarity.js";
  * A run is plain data — no class instances, no Maps — so it round-trips
  * through JSON directly. The version tag lets a future save format be
  * detected rather than silently misread.
+ *
+ * v2: scoutingTier moved off the franchise onto the coach profile (Step 5).
+ * v1 saves still load — normalizeSession strips the dead field.
  */
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
+const SUPPORTED_SAVE_VERSIONS = [1, 2];
 
 interface SaveEnvelope {
   version: number;
@@ -61,6 +66,11 @@ function normalizeSession(session: GameSession): void {
   if (typeof session.franchise.schemeSwitchUsed !== "boolean") {
     session.franchise.schemeSwitchUsed = false;
   }
+  // v1 carried scoutingTier on the franchise; Step 5 moved it to the coach
+  // profile, where it is derived from experience. Drop the dead field.
+  if ("scoutingTier" in session.franchise) {
+    delete (session.franchise as { scoutingTier?: number }).scoutingTier;
+  }
   if (
     !session.idCursor ||
     typeof session.idCursor.player !== "number" ||
@@ -97,7 +107,7 @@ export function deserializeSession(raw: string): LoadResult {
   }
 
   const envelope = parsed as Partial<SaveEnvelope>;
-  if (envelope.version !== SAVE_VERSION) {
+  if (!SUPPORTED_SAVE_VERSIONS.includes(envelope.version ?? -1)) {
     return { ok: false, reason: `Save is version ${envelope.version ?? "unknown"}, expected ${SAVE_VERSION}` };
   }
   if (!envelope.session?.league?.teams?.length) {
@@ -155,4 +165,71 @@ export function clearBrowserSave(): void {
 
 export function hasBrowserSave(): boolean {
   return storage()?.getItem(STORAGE_KEY) != null;
+}
+
+/**
+ * The coach profile outlives runs on purpose (Step 5) — being fired clears
+ * the run save, never this one. Its own slot and envelope keep the two
+ * lifetimes distinct.
+ */
+const COACH_STORAGE_KEY = "footballrogue.coach.v1";
+
+interface CoachEnvelope {
+  version: number;
+  savedAt: string;
+  profile: CoachProfile;
+}
+
+export function serializeCoachProfile(profile: CoachProfile): string {
+  const envelope: CoachEnvelope = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    profile,
+  };
+  return JSON.stringify(envelope);
+}
+
+export type CoachLoadResult =
+  | { ok: true; profile: CoachProfile }
+  | { ok: false; reason: string };
+
+export function deserializeCoachProfile(raw: string): CoachLoadResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: "Coach profile is not valid JSON" };
+  }
+  const envelope = parsed as Partial<CoachEnvelope>;
+  if (envelope.version !== 1 || !envelope.profile) {
+    return { ok: false, reason: "Coach profile is missing or from a future version" };
+  }
+  if (
+    typeof envelope.profile.name !== "string" ||
+    typeof envelope.profile.experience !== "number" ||
+    !envelope.profile.careerRecord
+  ) {
+    return { ok: false, reason: "Coach profile is malformed" };
+  }
+  return { ok: true, profile: envelope.profile };
+}
+
+export function saveCoachProfileToBrowser(profile: CoachProfile): boolean {
+  const store = storage();
+  if (!store) return false;
+  try {
+    store.setItem(COACH_STORAGE_KEY, serializeCoachProfile(profile));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadCoachProfileFromBrowser(): CoachProfile | undefined {
+  const store = storage();
+  if (!store) return undefined;
+  const raw = store.getItem(COACH_STORAGE_KEY);
+  if (!raw) return undefined;
+  const loaded = deserializeCoachProfile(raw);
+  return loaded.ok ? loaded.profile : undefined;
 }

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { generateTeam, resetTeamIdCounter } from "../src/generators/teamGenerator.js";
 import { resetPlayerIdCounter } from "../src/generators/playerGenerator.js";
+import { MAX_SCOUTING_TIER } from "../src/franchise/coachProfile.js";
 import { SeededRng } from "../src/rng.js";
 import {
   counterPlan,
   resolveReveal,
+  scoutingFuzz,
   scoutingReport,
   type RevealOutcome,
 } from "../src/sim/reveal.js";
@@ -130,6 +132,11 @@ describe("scoutingReport", () => {
     for (const s of DEFENSE_SCHEMES) {
       expect(revealed.defenseLikelihood[s]).toBe(s === team.scheme.defense ? 1 : 0);
     }
+  });
+
+  it("ties weekly report fuzz to scouting tier — sharper at higher tiers", () => {
+    expect(scoutingFuzz(0)).toBeGreaterThan(scoutingFuzz(2));
+    expect(scoutingFuzz(2)).toBeGreaterThan(scoutingFuzz(MAX_SCOUTING_TIER));
   });
 });
 

@@ -9,6 +9,7 @@ import {
   type DraftState,
 } from "../draft/draft.js";
 import { generateLeague } from "../generators/leagueGenerator.js";
+import { generateCoach } from "../generators/coachGenerator.js";
 import {
   getPlayerIdCounter,
   resetPlayerIdCounter,
@@ -19,6 +20,8 @@ import {
   resetTeamIdCounter,
   setTeamIdCounter,
 } from "../generators/teamGenerator.js";
+import type { CoachProfile, RunLegacy } from "./coachProfile.js";
+import { tierForExperience } from "./coachProfile.js";
 import type { League } from "../models/league.js";
 import type { Team } from "../models/team.js";
 import { advanceRecovery, rollInjuries, type InjuryEvent } from "../progression/injuries.js";
@@ -87,7 +90,12 @@ function rngFor(session: GameSession, salt: number): SeededRng {
   return new SeededRng(session.seed * 31 + salt);
 }
 
-export function createSession(seed: number, teamId?: string, numTeams = 32): GameSession {
+export function createSession(
+  seed: number,
+  teamId?: string,
+  numTeams = 32,
+  coach?: CoachProfile,
+): GameSession {
   resetPlayerIdCounter();
   resetTeamIdCounter();
   const rng = new SeededRng(seed);
@@ -95,11 +103,16 @@ export function createSession(seed: number, teamId?: string, numTeams = 32): Gam
   scheduleSeason(league, REGULAR_SEASON_WEEKS);
   const chosen = teamId ?? league.teams[0]?.id ?? "";
 
-  // The player is a fresh hire on a new run. Career experience — and the
-  // read advantage it buys — is earned and carried between runs (Step 5).
+  // The player's coach is the meta-progression that outlives the run: a new
+  // hire starts at zero, a returning coach brings their career experience and
+  // name into the new job (Step 5).
   const yourTeam = league.teams.find((team) => team.id === chosen);
   if (yourTeam) {
-    yourTeam.coach = { id: `${chosen}-coach`, name: yourTeam.coach.name, experience: 0 };
+    yourTeam.coach = {
+      id: `${chosen}-coach`,
+      name: coach?.name ?? yourTeam.coach.name,
+      experience: coach?.experience ?? 0,
+    };
   }
 
   return {
@@ -164,6 +177,37 @@ export function yourTeam(session: GameSession): Team {
   const team = session.league.teams.find((t) => t.id === session.franchise.teamId);
   if (!team) throw new Error("Franchise team is not in the league");
   return team;
+}
+
+/** What this run contributes to the coach's career — feeds the profile merge. */
+export function runLegacy(session: GameSession): RunLegacy {
+  return {
+    coachExperience: yourTeam(session).coach.experience,
+    seasons: session.franchise.history.map((season) => ({
+      wins: season.wins,
+      losses: season.losses,
+      ties: season.ties,
+      wonChampionship: season.wonChampionship,
+    })),
+  };
+}
+
+/**
+ * Takes the job at the chosen franchise. The human coach is parked on the
+ * league's default team at session creation (it needs a team to exist), so
+ * picking a different one moves the coach — and the career experience that
+ * goes with them — to the new team, restoring the default team's AI coach.
+ */
+export function pickTeam(session: GameSession, teamId: string): void {
+  const current = yourTeam(session);
+  const next = session.league.teams.find((team) => team.id === teamId);
+  if (!next) throw new Error(`No team with id ${teamId} in the league`);
+  if (next.id !== current.id) {
+    const human = current.coach;
+    current.coach = generateCoach(current.id);
+    next.coach = { ...human, id: `${teamId}-coach` };
+  }
+  session.franchise.teamId = teamId;
 }
 
 export function standings(session: GameSession): StandingsRow[] {
@@ -272,6 +316,11 @@ export function playPlayoffs(session: GameSession): PlayoffResult {
   session.seasonReview = review;
   session.phase = review.outcome === "fired" ? "runOver" : "draft";
 
+  // A completed season is a season coached: the run coach's career experience
+  // grows here so a firing carries it into the profile, and the next draft's
+  // scouting tier reflects it.
+  yourTeam(session).coach.experience += 1;
+
   return result;
 }
 
@@ -290,7 +339,10 @@ export function beginDraft(session: GameSession): DraftState {
   // rookie would receive an id that already belongs to someone in the league.
   setPlayerIdCounter(session.idCursor?.player ?? 1);
   setTeamIdCounter(session.idCursor?.team ?? 1);
-  const draftClass = generateDraftClass(rng, session.league.season + 1, session.franchise.scoutingTier);
+  // Scouting tier lives on the coach profile (Step 5): the run coach carries
+  // the career experience, and experience buys tier — see coachProfile.ts.
+  const tier = tierForExperience(yourTeam(session).coach.experience);
+  const draftClass = generateDraftClass(rng, session.league.season + 1, tier);
   const state = startDraft(session.league, draftClass);
 
   session.draftClass = draftClass;

@@ -98,6 +98,15 @@ function fuzzRating(rating: number, fuzz: number, rng: SeededRng): UnitRange {
   return { low: Math.round(low), high: Math.round(high) };
 }
 
+/**
+ * How fuzzy a weekly scouting report is, in rating points, at a given
+ * scouting tier — the meta-progression twin of scoutingError in
+ * draftClass.ts. Tier 0 is a rough guess; the top tier is nearly exact.
+ */
+export function scoutingFuzz(scoutingTier: number): number {
+  return Math.max(2, 10 - scoutingTier * 1.6);
+}
+
 function likelihood<T extends string>(truth: T, options: readonly T[], rng: SeededRng): Record<T, number> {
   const weights = options.map((option) =>
     option === truth ? rng.float(0.55, 0.8) : rng.float(0.05, 0.3),

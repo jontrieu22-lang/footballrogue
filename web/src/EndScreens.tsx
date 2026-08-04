@@ -1,4 +1,5 @@
 import { yourTeam, type GameSession } from "../../src/franchise/game.js";
+import { scoutingTier, type CoachProfile } from "../../src/franchise/coachProfile.js";
 import type { PlayoffGame } from "../../src/sim/playoffs.js";
 import { Patience } from "./SeasonScreen.js";
 
@@ -78,9 +79,11 @@ export function ReviewScreen({
 
 export function RunOverScreen({
   session,
+  career,
   onNewRun,
 }: {
   session: GameSession;
+  career: CoachProfile;
   onNewRun: () => void;
 }) {
   const franchise = session.franchise;
@@ -89,6 +92,18 @@ export function RunOverScreen({
       <div className="panel center-screen">
         <h1 className="run-over">RUN OVER</h1>
         <p>{franchise.endReason}</p>
+
+        <div className="career-summary">
+          <h3>
+            Coach {career.name}'s career
+          </h3>
+          <p>
+            {career.careerRecord.wins}-{career.careerRecord.losses}-
+            {career.careerRecord.ties} · {career.experience} seasons ·{" "}
+            {career.championships} {career.championships === 1 ? "ring" : "rings"} · Scouting T
+            {scoutingTier(career)} — carried into the next run.
+          </p>
+        </div>
 
         <table>
           <thead>

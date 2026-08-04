@@ -23,6 +23,10 @@ import {
   ROSTER_LIMIT,
   STARTING_PATIENCE,
 } from "../src/franchise/runState.js";
+import {
+  createCoachProfile,
+  mergeRunIntoProfile,
+} from "../src/franchise/coachProfile.js";
 import { deserializeSession, serializeSession } from "../src/franchise/save.js";
 import { generateDraftClass, scoutingError } from "../src/draft/draftClass.js";
 import { startDraft, runFullDraft, DRAFT_ROUNDS } from "../src/draft/draft.js";
@@ -451,6 +455,89 @@ describe("id integrity", () => {
         }
       }
     }
+  });
+});
+
+describe("coach career", () => {
+  it("adds a season of experience when the postseason is reviewed", () => {
+    fresh();
+    const session = createSession(81);
+    startSeason(session);
+    for (let week = 1; week <= REGULAR_SEASON_WEEKS; week++) playWeek(session);
+    const before = yourTeam(session).coach.experience;
+
+    playPlayoffs(session);
+
+    expect(yourTeam(session).coach.experience).toBe(before + 1);
+  });
+
+  it("derives the draft's scouting tier from the coach's experience", () => {
+    fresh();
+    const coach = createCoachProfile("Maya Reed");
+    coach.experience = 8; // tier 2
+    const session = createSession(83, undefined, 8, coach);
+    session.phase = "draft";
+
+    beginDraft(session);
+
+    // generateDraftClass picks the error from the tier the coach has earned.
+    expect(session.draftClass).toBeDefined();
+    const expectedSpread = scoutingError(2);
+    expect(session.draftClass?.prospects[0]?.uncertainty).toBe(Math.round(expectedSpread));
+  });
+
+  it("carries experience, record, and rings into the next run after being fired", () => {
+    fresh();
+    const profile = createCoachProfile("Maya Reed");
+    profile.experience = 4;
+    const session = createSession(85, undefined, 32, profile);
+    const team = yourTeam(session);
+    startSeason(session);
+
+    // A bad season with a frayed patience bar ends the run.
+    for (const other of session.league.teams) {
+      other.record = other.id === team.id
+        ? { wins: 2, losses: 15, ties: 0 }
+        : { wins: 10, losses: 7, ties: 0 };
+    }
+    session.franchise.patience = 1;
+    session.phase = "playoffs";
+    playPlayoffs(session);
+    expect(session.phase).toBe("runOver");
+
+    const merged = mergeRunIntoProfile(profile, {
+      coachExperience: yourTeam(session).coach.experience,
+      seasons: session.franchise.history.map((s) => ({
+        wins: s.wins,
+        losses: s.losses,
+        ties: s.ties,
+        wonChampionship: s.wonChampionship,
+      })),
+    });
+    expect(merged.experience).toBe(5);
+    expect(merged.careerRecord.losses).toBeGreaterThanOrEqual(15);
+
+    // The next run hires the same coach at their career level.
+    const next = createSession(87, undefined, 8, merged);
+    expect(yourTeam(next).coach.name).toBe("Maya Reed");
+    expect(yourTeam(next).coach.experience).toBe(5);
+  });
+
+  it("strips the dead scoutingTier field from v1 saves", () => {
+    fresh();
+    const session = createSession(89);
+    const raw = serializeSession(session);
+    const v1 = JSON.parse(raw) as {
+      version: number;
+      session: GameSession & { franchise: { scoutingTier?: number } };
+    };
+    v1.version = 1;
+    v1.session.franchise.scoutingTier = 2;
+
+    const restored = deserializeSession(JSON.stringify(v1));
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect("scoutingTier" in restored.session.franchise).toBe(false);
   });
 });
 
