@@ -1,6 +1,7 @@
 import type { Team } from "../models/team.js";
 import type { SeededRng } from "../rng.js";
 import { getSchemeMultiplier } from "../schemes.js";
+import type { Tempo } from "../types.js";
 import { simulateDrive, type DriveResult } from "./drive.js";
 import { getKicker, getPunter, type Kicker } from "./kicking.js";
 import { AiPlayCaller, type PlayCaller } from "./playCalling.js";
@@ -18,6 +19,13 @@ const TOUCHBACK_YARDS_TO_GOAL = 75;
  * the drive engine compounds it across every play of the game.
  */
 const HOME_FIELD_BONUS = 1.5;
+
+/**
+ * How much better (in total unit rating) a team must be to play fast against
+ * an opponent, or worse to grind. Mirrors the ±10 build used to test the
+ * tempo crossover: only clear favourites and underdogs bother.
+ */
+const AI_TEMPO_EDGE = 14;
 
 export interface TeamGameStats {
   points: number;
@@ -97,6 +105,7 @@ interface SideState {
   kicker: Kicker;
   punter: Kicker;
   playCaller: PlayCaller;
+  tempo: Tempo;
 }
 
 function recordDrive(side: SideState, opponent: SideState, drive: DriveResult): void {
@@ -135,7 +144,30 @@ function recordDrive(side: SideState, opponent: SideState, drive: DriveResult): 
   }
 }
 
-function buildSide(team: Team, opponent: Team, isHome: boolean): SideState {
+/**
+ * The AI's tempo preference: favourites want more possessions so their edge
+ * compounds, underdogs want fewer so one lucky break decides the game.
+ * Compared on total unit rating (home gets the field bonus it actually plays
+ * with), so a team that is a favourite at home can still grind on the road.
+ */
+function aiTempo(team: Team, opponent: Team, isHome: boolean): Tempo {
+  const self = computeTeamUnits(team);
+  const other = computeTeamUnits(opponent);
+  const selfTotal =
+    self.passOffense +
+    self.rushOffense +
+    self.passDefense +
+    self.rushDefense +
+    (isHome ? 4 * HOME_FIELD_BONUS : 0);
+  const otherTotal =
+    other.passOffense + other.rushOffense + other.passDefense + other.rushDefense;
+  const difference = selfTotal - otherTotal;
+  if (difference >= AI_TEMPO_EDGE) return "fast";
+  if (difference <= -AI_TEMPO_EDGE) return "grind";
+  return "balanced";
+}
+
+function buildSide(team: Team, opponent: Team, isHome: boolean, tempo: Tempo): SideState {
   const base = computeTeamUnits(team);
   const withHome = isHome ? applyHomeBonus(base) : base;
   const matchup = getSchemeMultiplier(team.scheme.offense, opponent.scheme.defense);
@@ -147,6 +179,7 @@ function buildSide(team: Team, opponent: Team, isHome: boolean): SideState {
     kicker: getKicker(team.roster),
     punter: getPunter(team.roster),
     playCaller: new AiPlayCaller(),
+    tempo,
   };
 }
 
@@ -178,6 +211,7 @@ function playPeriod(
         startingYardsToGoal: yardsToGoal,
         scoreDifferential: offense.stats.points - defense.stats.points,
         secondsRemaining,
+        tempo: offense.tempo,
       },
       rng,
     );
@@ -192,9 +226,24 @@ function playPeriod(
   }
 }
 
-export function simulateGame(home: Team, away: Team, rng: SeededRng): GameResult {
-  const homeSide = buildSide(home, away, true);
-  const awaySide = buildSide(away, home, false);
+/**
+ * Per-game tempo overrides. Omitted sides use the AI's own pick (favourite
+ * fast, underdog grind). The human team's weekly plan will fill these in
+ * once the game plan UI lands.
+ */
+export interface GameTempoOverrides {
+  homeTempo?: Tempo;
+  awayTempo?: Tempo;
+}
+
+export function simulateGame(
+  home: Team,
+  away: Team,
+  rng: SeededRng,
+  tempos: GameTempoOverrides = {},
+): GameResult {
+  const homeSide = buildSide(home, away, true, tempos.homeTempo ?? aiTempo(home, away, true));
+  const awaySide = buildSide(away, home, false, tempos.awayTempo ?? aiTempo(away, home, false));
 
   // First half: the away team receives the opening kickoff, so the home
   // team kicked off to open.

@@ -293,7 +293,10 @@ describe("development pays off", () => {
   it("wins more games than leaving the points unspent", () => {
     const run = (spend: boolean) => {
       let wins = 0;
-      const seasons = 8;
+      // 24 seasons: with development worth ~1.5 wins and per-season win
+      // variance of about 2.5, a smaller sample cannot reliably resolve the
+      // edge — 8 seasons measured spend and hoard as a coin flip.
+      const seasons = 24;
       for (let seed = 1; seed <= seasons; seed++) {
         resetPlayerIdCounter();
         resetTeamIdCounter();

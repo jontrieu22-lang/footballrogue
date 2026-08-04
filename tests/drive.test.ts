@@ -42,6 +42,7 @@ function makeContext(overrides: Partial<DriveContext> = {}): DriveContext {
     startingYardsToGoal: 75,
     scoreDifferential: 0,
     secondsRemaining: 1800,
+    tempo: "balanced",
     ...overrides,
   };
 }

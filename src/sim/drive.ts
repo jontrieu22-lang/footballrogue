@@ -17,7 +17,7 @@ import {
 import { resolvePlay, type PlayResult, type PlayType } from "./play.js";
 import type { GameSituation, PlayCaller } from "./playCalling.js";
 import type { TeamUnitRatings } from "./units.js";
-import type { OffenseSchemeId } from "../types.js";
+import type { OffenseSchemeId, Tempo } from "../types.js";
 
 export type DriveOutcome =
   | "touchdown"
@@ -64,6 +64,8 @@ export interface DriveContext {
   startingYardsToGoal: number;
   scoreDifferential: number;
   secondsRemaining: number;
+  /** How fast the offense wants to play; drives possession count. */
+  tempo: Tempo;
 }
 
 const TOUCHBACK_YARDS_TO_GOAL = 75;
@@ -125,6 +127,7 @@ export function simulateDrive(context: DriveContext, rng: SeededRng): DriveResul
     scoreDifferential: context.scoreDifferential,
     secondsRemaining: Math.max(0, context.secondsRemaining - clockSeconds),
     scheme: context.scheme,
+    tempo: context.tempo,
   });
 
   while (true) {

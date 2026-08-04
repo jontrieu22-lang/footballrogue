@@ -1,5 +1,5 @@
 import type { SeededRng } from "../rng.js";
-import type { OffenseSchemeId } from "../types.js";
+import type { OffenseSchemeId, Tempo } from "../types.js";
 import {
   conversionProbability,
   expectedPoints,
@@ -18,6 +18,11 @@ export interface GameSituation {
   scoreDifferential: number;
   secondsRemaining: number;
   scheme: OffenseSchemeId;
+  /**
+   * The team's tempo for this game. Optional so standalone callers (tests)
+   * get balanced behaviour without declaring it.
+   */
+  tempo?: Tempo;
 }
 
 export interface FourthDownDecision {
@@ -51,17 +56,41 @@ const SCHEME_PASS_RATE: Record<OffenseSchemeId, number> = {
   rpo: 0.53,
 };
 
+/**
+ * Tempo shifts the scheme baseline, never replaces it. Capped at 0.12: any
+ * larger and a passing scheme grinding would pass less than a running scheme
+ * playing fast, which would make tempo the identity and schemes a footnote.
+ */
+const TEMPO_PASS_RATE_ADJUST: Record<Tempo, number> = {
+  fast: 0.12,
+  balanced: 0,
+  grind: -0.12,
+};
+
+/**
+ * Tempo also nudges fourth-down appetite: a grind game is a field-position
+ * game, a fast game is a possession game. Deliberately small — the expected
+ * value comparison in callFourthDown is the tuned baseline.
+ */
+const TEMPO_FOURTH_DOWN_BIAS: Record<Tempo, number> = {
+  fast: 0.3,
+  balanced: 0,
+  grind: -0.3,
+};
+
 const TWO_MINUTE_WARNING = 120;
 const LATE_GAME = 300;
 
 /**
- * Scheme sets the baseline tendency; situation moves it. Trailing late forces
- * the ball into the air, leading late bleeds clock on the ground, and short
- * yardage leans run — which is what makes a run-heavy scheme shorten games.
+ * Scheme sets the baseline tendency; tempo nudges it; situation moves it.
+ * Trailing late forces the ball into the air, leading late bleeds clock on
+ * the ground, and short yardage leans run — which is what makes a run-heavy
+ * scheme shorten games.
  */
 export class AiPlayCaller implements PlayCaller {
   callPlay(situation: GameSituation, rng: SeededRng): PlayType {
     let passRate = SCHEME_PASS_RATE[situation.scheme];
+    passRate += TEMPO_PASS_RATE_ADJUST[situation.tempo ?? "balanced"];
 
     if (situation.down === 3) {
       if (situation.yardsToFirstDown >= 6) passRate += 0.25;
@@ -130,7 +159,8 @@ export class AiPlayCaller implements PlayCaller {
     // Without this penalty teams convert far too often and touchdown rates run
     // half again as high as the NFL's.
     const goBias = rng.float(-1.35, 0.15);
-    const adjustedGo = goValue + goBias;
+    const tempoGoBias = TEMPO_FOURTH_DOWN_BIAS[situation.tempo ?? "balanced"];
+    const adjustedGo = goValue + goBias + tempoGoBias;
 
     if (adjustedGo >= adjustedFieldGoal && adjustedGo >= adjustedPunt) return { action: "go" };
     if (adjustedFieldGoal >= adjustedPunt) return { action: "fieldGoal" };
