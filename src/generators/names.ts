@@ -1,13 +1,13 @@
 import type { SeededRng } from "../rng.js";
 
-const FIRST_NAMES = [
+export const FIRST_NAMES = [
   "James", "Marcus", "Devon", "Tyler", "Jordan", "Elijah", "Caleb", "Xavier",
   "Isaiah", "Malik", "Trevor", "Brandon", "Cameron", "Dominic", "Jalen",
   "Austin", "Derek", "Chase", "Miles", "Aaron", "Reggie", "Corey", "Terrell",
   "Kyle", "Blake", "Antoine", "Damian", "Ezekiel", "Julian", "Nathaniel",
 ];
 
-const LAST_NAMES = [
+export const LAST_NAMES = [
   "Carter", "Washington", "Reynolds", "Griffin", "Coleman", "Barrett",
   "Sullivan", "Mercer", "Hayes", "Foster", "Whitfield", "Donovan", "Pierce",
   "Sanders", "Holloway", "Bishop", "Kendrick", "Vaughn", "Blackwood",
@@ -28,6 +28,10 @@ const TEAM_NICKNAMES = [
 ];
 
 export function generatePlayerName(rng: SeededRng): string {
+  return `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
+}
+
+export function generateCoachName(rng: SeededRng): string {
   return `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
 }
 

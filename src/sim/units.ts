@@ -203,13 +203,27 @@ export interface TeamUnitRatings {
   rushDefense: number;
 }
 
-export function computeTeamUnits(team: Team): TeamUnitRatings {
+/**
+ * Rates the roster in explicit schemes. The weekly game plan overrides the
+ * season scheme per game, and a roster built for one scheme rates lower in
+ * another — that loss of fit is what makes counter-picking a trade rather
+ * than a free lunch.
+ */
+export function computeTeamUnitsFor(
+  team: Team,
+  offense: OffenseSchemeId,
+  defense: DefenseSchemeId,
+): TeamUnitRatings {
   return {
-    passOffense: computeUnitRating(team.roster, PASS_OFFENSE, team.scheme.offense),
-    rushOffense: computeUnitRating(team.roster, RUSH_OFFENSE, team.scheme.offense),
-    passDefense: computeUnitRating(team.roster, PASS_DEFENSE, team.scheme.defense),
-    rushDefense: computeUnitRating(team.roster, RUSH_DEFENSE, team.scheme.defense),
+    passOffense: computeUnitRating(team.roster, PASS_OFFENSE, offense),
+    rushOffense: computeUnitRating(team.roster, RUSH_OFFENSE, offense),
+    passDefense: computeUnitRating(team.roster, PASS_DEFENSE, defense),
+    rushDefense: computeUnitRating(team.roster, RUSH_DEFENSE, defense),
   };
+}
+
+export function computeTeamUnits(team: Team): TeamUnitRatings {
+  return computeTeamUnitsFor(team, team.scheme.offense, team.scheme.defense);
 }
 
 export interface SchemeComboRating {

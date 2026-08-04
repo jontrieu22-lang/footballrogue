@@ -32,6 +32,7 @@ import { generateLeague } from "../src/generators/leagueGenerator.js";
 import { generateTeam, resetTeamIdCounter } from "../src/generators/teamGenerator.js";
 import { generatePlayer, resetPlayerIdCounter } from "../src/generators/playerGenerator.js";
 import { computeSchemeMatrix, computeTeamUnits } from "../src/sim/units.js";
+import { computeStandings } from "../src/sim/standings.js";
 import { SeededRng } from "../src/rng.js";
 import { scheduleSeason, simulateSeason } from "../src/sim/season.js";
 import { computeOverall } from "../src/models/player.js";
@@ -148,9 +149,10 @@ describe("draft", () => {
     const state = startDraft(league, draftClass);
     expect(state.order).toHaveLength(32 * DRAFT_ROUNDS);
 
-    // Worst record picks first.
-    const sorted = [...league.teams].sort((a, b) => a.record.wins - b.record.wins);
-    expect(state.order[0]).toBe(sorted[0]?.id);
+    // Worst record picks first. Standings tiebreak (win percentage, then
+    // point differential) decides when records are level at the bottom.
+    const standings = computeStandings(league.teams);
+    expect(state.order[0]).toBe(standings[standings.length - 1]?.teamId);
 
     const picks = runFullDraft(league, state);
     expect(picks).toHaveLength(32 * DRAFT_ROUNDS);
@@ -391,6 +393,40 @@ describe("id integrity", () => {
     // guarantees. Without it the reset counter would mint p1… over old ids.
     const after = collectIds(restoredSession);
     expect(new Set(after).size).toBe(after.length);
+  });
+
+  it("backfills coaches on old saves: fresh hire for the player, spread for the league", () => {
+    fresh();
+    const session = createSession(65);
+    const playerTeamId = session.franchise.teamId;
+    // Simulate a save from before coaches existed: no coach on any team.
+    for (const team of session.league.teams) {
+      delete (team as { coach?: unknown }).coach;
+    }
+
+    const restored = deserializeSession(serializeSession(session));
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+
+    for (const team of restored.session.league.teams) {
+      expect(team.coach).toBeDefined();
+      expect(team.coach?.id).toBe(`${team.id}-coach`);
+      expect(team.coach?.name).toBeTruthy();
+      if (team.id === playerTeamId) {
+        expect(team.coach?.experience).toBe(0);
+      } else {
+        expect(team.coach?.experience).toBeGreaterThanOrEqual(0);
+        expect(team.coach?.experience).toBeLessThan(20);
+      }
+    }
+
+    // Coaches are a pure function of team id: reloading restores the same ones.
+    const again = deserializeSession(serializeSession(restored.session));
+    expect(again.ok).toBe(true);
+    if (!again.ok) return;
+    expect(again.session.league.teams.map((t) => t.coach?.id)).toEqual(
+      restored.session.league.teams.map((t) => t.coach?.id),
+    );
   });
 
   it("does not age players drafted this offseason until next season", () => {

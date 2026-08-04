@@ -92,8 +92,15 @@ export function createSession(seed: number, teamId?: string, numTeams = 32): Gam
   const rng = new SeededRng(seed);
   const league = generateLeague(rng, numTeams);
   scheduleSeason(league, REGULAR_SEASON_WEEKS);
-
   const chosen = teamId ?? league.teams[0]?.id ?? "";
+
+  // The player is a fresh hire on a new run. Career experience — and the
+  // read advantage it buys — is earned and carried between runs (Step 5).
+  const yourTeam = league.teams.find((team) => team.id === chosen);
+  if (yourTeam) {
+    yourTeam.coach = { id: `${chosen}-coach`, name: yourTeam.coach.name, experience: 0 };
+  }
+
   return {
     seed,
     league,

@@ -1,4 +1,5 @@
 import type { GameSession } from "./game.js";
+import { generateCoach } from "../generators/coachGenerator.js";
 
 /**
  * A run is plain data — no class instances, no Maps — so it round-trips
@@ -65,6 +66,14 @@ function normalizeSession(session: GameSession): void {
     typeof session.idCursor.team !== "number"
   ) {
     session.idCursor = cursorFromExisting(session);
+  }
+  // Coaches arrived after the first save format. The human team was hired
+  // fresh (experience 0); AI teams get the usual spread. Deterministic from
+  // each team id, so reloading an old save always restores the same coaches.
+  for (const team of session.league?.teams ?? []) {
+    if (team.coach?.experience !== undefined) continue;
+    const experience = team.id === session.franchise.teamId ? 0 : undefined;
+    team.coach = generateCoach(team.id, experience);
   }
 }
 

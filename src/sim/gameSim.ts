@@ -1,11 +1,11 @@
 import type { Team } from "../models/team.js";
 import type { SeededRng } from "../rng.js";
 import { getSchemeMultiplier } from "../schemes.js";
-import type { Tempo } from "../types.js";
+import type { DefenseSchemeId, OffenseSchemeId, Tempo } from "../types.js";
 import { simulateDrive, type DriveResult } from "./drive.js";
 import { getKicker, getPunter, type Kicker } from "./kicking.js";
 import { AiPlayCaller, type PlayCaller } from "./playCalling.js";
-import { computeTeamUnits, type TeamUnitRatings } from "./units.js";
+import { computeTeamUnits, computeTeamUnitsFor, type TeamUnitRatings } from "./units.js";
 
 const REGULATION_SECONDS = 3600;
 /** Regulation is played as two halves; the clock and field position reset between them. */
@@ -105,7 +105,8 @@ interface SideState {
   kicker: Kicker;
   punter: Kicker;
   playCaller: PlayCaller;
-  tempo: Tempo;
+  /** What this team actually plays this game: season scheme unless overridden weekly. */
+  plan: GamePlan;
 }
 
 function recordDrive(side: SideState, opponent: SideState, drive: DriveResult): void {
@@ -167,10 +168,50 @@ function aiTempo(team: Team, opponent: Team, isHome: boolean): Tempo {
   return "balanced";
 }
 
-function buildSide(team: Team, opponent: Team, isHome: boolean, tempo: Tempo): SideState {
-  const base = computeTeamUnits(team);
+/**
+ * A team's plan for one game: the schemes it actually runs and the tempo it
+ * plays. Defaults to the season scheme pair plus the AI's tempo pick; the
+ * weekly game plan (Step 6) overrides it without mutating `team.scheme`,
+ * which development and AI logic read and assume is stable across a season.
+ */
+export interface GamePlan {
+  offense: OffenseSchemeId;
+  defense: DefenseSchemeId;
+  tempo: Tempo;
+}
+
+/**
+ * Per-game plan overrides. Missing fields fall back to the season scheme
+ * and the AI's tempo pick.
+ */
+export interface GamePlanOverrides {
+  home?: Partial<GamePlan>;
+  away?: Partial<GamePlan>;
+}
+
+function resolvePlan(
+  team: Team,
+  partial: Partial<GamePlan> | undefined,
+  tempoPick: Tempo,
+): GamePlan {
+  return {
+    offense: partial?.offense ?? team.scheme.offense,
+    defense: partial?.defense ?? team.scheme.defense,
+    tempo: partial?.tempo ?? tempoPick,
+  };
+}
+
+function buildSide(
+  team: Team,
+  isHome: boolean,
+  plan: GamePlan,
+  opponentDefense: DefenseSchemeId,
+): SideState {
+  // Units are rated in the scheme the team actually plays, so a roster built
+  // for its season scheme loses fit when a weekly plan switches schemes.
+  const base = computeTeamUnitsFor(team, plan.offense, plan.defense);
   const withHome = isHome ? applyHomeBonus(base) : base;
-  const matchup = getSchemeMultiplier(team.scheme.offense, opponent.scheme.defense);
+  const matchup = getSchemeMultiplier(plan.offense, opponentDefense);
 
   return {
     team,
@@ -179,7 +220,7 @@ function buildSide(team: Team, opponent: Team, isHome: boolean, tempo: Tempo): S
     kicker: getKicker(team.roster),
     punter: getPunter(team.roster),
     playCaller: new AiPlayCaller(),
-    tempo,
+    plan,
   };
 }
 
@@ -204,14 +245,14 @@ function playPeriod(
       {
         offense: offense.units,
         defense: defense.units,
-        scheme: offense.team.scheme.offense,
+        scheme: offense.plan.offense,
         playCaller: offense.playCaller,
         kicker: offense.kicker,
         punter: offense.punter,
         startingYardsToGoal: yardsToGoal,
         scoreDifferential: offense.stats.points - defense.stats.points,
         secondsRemaining,
-        tempo: offense.tempo,
+        tempo: offense.plan.tempo,
       },
       rng,
     );
@@ -226,24 +267,16 @@ function playPeriod(
   }
 }
 
-/**
- * Per-game tempo overrides. Omitted sides use the AI's own pick (favourite
- * fast, underdog grind). The human team's weekly plan will fill these in
- * once the game plan UI lands.
- */
-export interface GameTempoOverrides {
-  homeTempo?: Tempo;
-  awayTempo?: Tempo;
-}
-
 export function simulateGame(
   home: Team,
   away: Team,
   rng: SeededRng,
-  tempos: GameTempoOverrides = {},
+  overrides: GamePlanOverrides = {},
 ): GameResult {
-  const homeSide = buildSide(home, away, true, tempos.homeTempo ?? aiTempo(home, away, true));
-  const awaySide = buildSide(away, home, false, tempos.awayTempo ?? aiTempo(away, home, false));
+  const homePlan = resolvePlan(home, overrides.home, aiTempo(home, away, true));
+  const awayPlan = resolvePlan(away, overrides.away, aiTempo(away, home, false));
+  const homeSide = buildSide(home, true, homePlan, awayPlan.defense);
+  const awaySide = buildSide(away, false, awayPlan, homePlan.defense);
 
   // First half: the away team receives the opening kickoff, so the home
   // team kicked off to open.

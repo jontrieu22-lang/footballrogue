@@ -1,3 +1,4 @@
+import type { Coach } from "./coach.js";
 import type { SchemeId } from "../schemes.js";
 import type { DefenseSchemeId, OffenseSchemeId, Position } from "../types.js";
 import { computeOverall, type Player } from "./player.js";
@@ -14,6 +15,8 @@ export interface Team {
   name: string;
   roster: Player[];
   scheme: { offense: OffenseSchemeId; defense: DefenseSchemeId };
+  /** Who runs this team; experience drives the weekly read roll (see sim/reveal.ts). */
+  coach: Coach;
   franchisePoints: number;
   draftPicks: DraftPick[];
   record: { wins: number; losses: number; ties: number };

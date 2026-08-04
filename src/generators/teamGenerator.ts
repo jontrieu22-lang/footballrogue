@@ -7,6 +7,7 @@ import {
   OFFENSE_POSITIONS,
   OFFENSE_SCHEMES,
 } from "../schemes.js";
+import { generateCoach } from "./coachGenerator.js";
 import { generatePlayerName, generateTeamName } from "./names.js";
 import { generatePlayer } from "./playerGenerator.js";
 
@@ -71,11 +72,13 @@ export function generateTeam(rng: SeededRng, options: GenerateTeamOptions = {}):
     }
   }
 
+  const id = `t${nextTeamId++}`;
   return {
-    id: `t${nextTeamId++}`,
+    id,
     name: generateTeamName(rng),
     roster,
     scheme: { offense: rng.pick(OFFENSE_SCHEMES), defense: rng.pick(DEFENSE_SCHEMES) },
+    coach: generateCoach(id),
     franchisePoints: STARTING_FRANCHISE_POINTS,
     draftPicks: [],
     record: { wins: 0, losses: 0, ties: 0 },
