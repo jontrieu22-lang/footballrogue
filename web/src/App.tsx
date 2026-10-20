@@ -7,6 +7,8 @@ import {
 } from "../../src/cpu";
 import {
   STATS,
+  ROSTER_SIZE,
+  HAND_SIZE,
   SLOTS,
   PLAYS,
   DEFENSES,
@@ -33,21 +35,23 @@ type Phase =
   | "defense"
   | "result"
   | "upgrade";
-const empty = (): Team => ({ cards: [], lineup: Array<string>(10).fill("") });
+const empty = (): Team => ({
+  cards: [],
+  lineup: Array<string>(ROSTER_SIZE).fill(""),
+});
 const descriptions = [
-  "Reliable yards through the middle. RB carries; OL + Flex block.",
-  "Flex carries outside. RB + OL clear the edge.",
-  "Your QB takes off. RB + OL lead the way.",
-  "WR receives a quick throw. Lower sack risk.",
-  "Flex catches underneath. Strong against a blitz.",
-  "WR goes deep. Flex stays in protection. High risk, big gains.",
+  "RB carries inside. OL run blocking battles the DL.",
+  "RB attacks the edge. Bigger gains, bigger risk.",
+  "QB carries behind the OL. Test the linebacker’s tackling.",
+  "QB finds the WR quickly. OL protects against the DL.",
+  "RB catches underneath. Punish a blitzing linebacker.",
+  "QB targets WR deep. Beat the CB and safety; OL buys time.",
 ];
 const defenseNotes = [
-  "A balanced front with no specialized bonus.",
-  "Commit your wildcard to the run. Exposes deep coverage.",
-  "Track mobile QBs and outside runners. Less pass pressure.",
-  "Send extra pressure. Vulnerable to screens and quick passes.",
-  "Protect against deep throws. Gives up room underneath.",
+  "Safety gives modest help against both runs and passes.",
+  "Safety joins LB against runs. CB is exposed deep.",
+  "LB joins DL to pressure the QB. Exposes screens and runs.",
+  "Safety helps CB against deep passes. LB handles runs alone.",
 ];
 export default function App() {
   const [solo, setSolo] = useState(true);
@@ -75,10 +79,10 @@ export default function App() {
     setSelected(null);
     setPlayer(0);
     setTeams([
-      { cards: deal(12, "a"), lineup: Array(10).fill("") },
+      { cards: deal(HAND_SIZE, "a"), lineup: Array(ROSTER_SIZE).fill("") },
       single
-        ? buildCpuTeam(deal(12, "b"))
-        : { cards: deal(12, "b"), lineup: Array(10).fill("") },
+        ? buildCpuTeam(deal(HAND_SIZE, "b"))
+        : { cards: deal(HAND_SIZE, "b"), lineup: Array(ROSTER_SIZE).fill("") },
     ]);
     setGame(null);
     if (single) setPhase("build");
@@ -198,8 +202,8 @@ export default function App() {
         <section key={label}>
           <h3>{label}</h3>
           <div className="slots">
-            {SLOTS.slice(unit * 5, unit * 5 + 5).map((slot, j) => {
-              const index = unit * 5 + j,
+            {SLOTS.slice(unit * 4, unit * 4 + 4).map((slot, j) => {
+              const index = unit * 4 + j,
                 c = teams[player]!.cards.find(
                   (c) => c.id === teams[player]!.lineup[index],
                 );
@@ -255,7 +259,7 @@ export default function App() {
           <h2>A football game of hands and reads.</h2>
           <p>
             Play solo against the CPU, or share this device with a second
-            person. Deal 12 universal athletes, assign 5 on offense and 5 on
+            person. Deal 10 universal athletes, assign 4 on offense and 4 on
             defense. The two unassigned cards are discarded. Select a card, then
             a slot; selecting an assigned card lets you swap positions.
           </p>
@@ -295,7 +299,7 @@ export default function App() {
       )}
       {phase === "welcome" && (
         <section className="hero">
-          <p className="eyebrow">YOUR TEAM. TWELVE CARDS. YOUR CALL.</p>
+          <p className="eyebrow">YOUR TEAM. TEN CARDS. YOUR CALL.</p>
           <h1>
             Build your hand.
             <br />
@@ -341,7 +345,7 @@ export default function App() {
             {destination === "defense"
               ? "The offensive call is locked. Choose your response in private."
               : destination === "build"
-                ? "Your twelve cards are waiting. Build your team in private."
+                ? "Your ten cards are waiting. Build your team in private."
                 : destination === "upgrade"
                   ? "Three new athletes. One roster spot. Make your move."
                   : "Choose your offensive play before handing over the device."}
@@ -356,7 +360,7 @@ export default function App() {
           <div className="section-title">
             <div>
               <p className="eyebrow">PLAYER 0{player + 1} / THE DRAFT</p>
-              <h1>Twelve cards. Ten starters.</h1>
+              <h1>Ten cards. Eight starters.</h1>
               <p>
                 Select an athlete, then a position. Every card can play either
                 side.
@@ -364,10 +368,13 @@ export default function App() {
             </div>
             <button
               className="primary"
-              disabled={teams[player]!.lineup.filter(Boolean).length !== 10}
+              disabled={
+                teams[player]!.lineup.filter(Boolean).length !== ROSTER_SIZE
+              }
               onClick={lock}
             >
-              Lock team · {teams[player]!.lineup.filter(Boolean).length}/10
+              Lock team · {teams[player]!.lineup.filter(Boolean).length}/
+              {ROSTER_SIZE}
             </button>
           </div>
           {lineup(true)}

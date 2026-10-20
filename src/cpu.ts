@@ -1,5 +1,7 @@
 import {
   lockTeam,
+  ROSTER_SIZE,
+  HAND_SIZE,
   kickChance,
   type Card,
   type Team,
@@ -9,26 +11,24 @@ import {
 } from "./game";
 const weights = [
   [0.75, 0.25, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0.8, 0, 0, 0.2, 0, 0, 0, 0],
-  [0, 0, 0.85, 0.15, 0, 0, 0, 0, 0],
-  [0, 0.4, 0.4, 0.1, 0.1, 0, 0, 0, 0],
+  [0, 0.65, 0.35, 0, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0.5, 0.5, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0.9, 0.1, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0.5, 0.2, 0.3],
   [0, 0, 0, 0, 0, 0, 0, 0.5, 0.5],
+  [0, 0, 0, 0, 0, 0, 0.75, 0.25, 0],
+  [0, 0, 0, 0, 0, 1, 0, 0, 0],
   [0, 0, 0, 0, 0, 0.5, 0.5, 0, 0],
-  [0, 0, 0, 0, 0, 0.25, 0.25, 0.25, 0.25],
 ];
 const fit = (c: Card, slot: number) =>
   weights[slot]!.reduce((sum, w, i) => sum + w * c.stats[i]!, 0);
-// Exact assignment over a 12-card hand: maximize fit without reusing athletes.
+// Exact assignment over a 10-card hand: maximize fit without reusing athletes.
 export function buildCpuTeam(cards: Card[]): Team {
-  if (cards.length < 10 || cards.length > 13)
-    throw Error("CPU requires 10–13 cards");
+  if (cards.length < ROSTER_SIZE || cards.length > HAND_SIZE)
+    throw Error("CPU requires 8–10 cards");
   let states = new Map<number, { score: number; lineup: string[] }>([
     [0, { score: 0, lineup: [] }],
   ]);
-  for (let slot = 0; slot < 10; slot++) {
+  for (let slot = 0; slot < ROSTER_SIZE; slot++) {
     const next = new Map<number, { score: number; lineup: string[] }>();
     for (const [mask, state] of states)
       cards.forEach((card, i) => {
@@ -96,11 +96,11 @@ export function cpuOffense(g: Game, rng = Math.random): Play | "kick" {
     return "kick";
   return weighted<Play>(
     [
-      ["Inside Run", r(1, 1) + r(4, 4) + (g.toGo <= 3 ? 5 : 0)],
-      ["Outside Run", r(3, 1) + r(4, 4)],
-      ["QB Keep", r(0, 1) + r(1, 4)],
+      ["Inside Run", r(1, 1) + r(3, 4) + (g.toGo <= 3 ? 5 : 0)],
+      ["Outside Run", r(1, 1) + r(3, 4)],
+      ["QB Keep", r(0, 1) + r(3, 4)],
       ["Quick Pass", r(0, 0) + r(2, 2)],
-      ["Screen", r(0, 0) + r(3, 2)],
+      ["Screen", r(0, 0) + r(1, 2)],
       ["Deep Pass", r(0, 0) + r(2, 2) + (g.toGo >= 8 ? 5 : 0)],
     ],
     rng,
@@ -108,15 +108,14 @@ export function cpuOffense(g: Game, rng = Math.random): Play | "kick" {
 }
 export function cpuDefense(g: Game, rng = Math.random): Defense {
   const t = g.teams[g.offense]!,
-    run = rating(t, 1, 1) + rating(t, 4, 4),
+    run = rating(t, 1, 1) + rating(t, 3, 4),
     pass = rating(t, 0, 0) + rating(t, 2, 2);
   return weighted<Defense>(
     [
       ["Balanced", 8],
-      ["Stack the Box", run + (g.toGo <= 3 ? 7 : 0)],
-      ["Contain / Spy", rating(t, 0, 1) + rating(t, 3, 1)],
+      ["Run Stop", run + (g.toGo <= 3 ? 7 : 0)],
       ["Blitz", 10],
-      ["Deep Coverage", pass + (g.toGo >= 8 ? 5 : 0)],
+      ["Pass Coverage", pass + (g.toGo >= 8 ? 5 : 0)],
     ],
     rng,
   );

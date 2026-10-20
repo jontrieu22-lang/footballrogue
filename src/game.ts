@@ -13,14 +13,14 @@ export const SLOTS = [
   "QB",
   "RB",
   "WR",
-  "Flex",
   "OL",
-  "CB",
-  "LB",
   "DL",
+  "LB",
+  "CB",
   "Safety",
-  "Wildcard",
 ] as const;
+export const ROSTER_SIZE = SLOTS.length;
+export const HAND_SIZE = ROSTER_SIZE + 2;
 export const PLAYS = [
   "Inside Run",
   "Outside Run",
@@ -31,10 +31,9 @@ export const PLAYS = [
 ] as const;
 export const DEFENSES = [
   "Balanced",
-  "Stack the Box",
-  "Contain / Spy",
+  "Run Stop",
   "Blitz",
-  "Deep Coverage",
+  "Pass Coverage",
 ] as const;
 export type Play = (typeof PLAYS)[number];
 export type Defense = (typeof DEFENSES)[number];
@@ -123,20 +122,20 @@ export function deal(count: number, prefix: string, rng = Math.random): Card[] {
 }
 export function validateLineup(team: Team) {
   return (
-    team.lineup.length === 10 &&
-    new Set(team.lineup).size === 10 &&
+    team.lineup.length === ROSTER_SIZE &&
+    new Set(team.lineup).size === ROSTER_SIZE &&
     team.lineup.every((id) => team.cards.some((c) => c.id === id))
   );
 }
 export function lockTeam(team: Team): Team {
-  if (!validateLineup(team)) throw new Error("Assign ten different cards.");
+  if (!validateLineup(team)) throw new Error("Assign eight different cards.");
   return {
     lineup: [...team.lineup],
     cards: team.cards.filter((c) => team.lineup.includes(c.id)),
   };
 }
 export function replaceCard(team: Team, slot: number, card: Card): Team {
-  if (slot < 0 || slot > 9 || !Number.isInteger(slot))
+  if (slot < 0 || slot >= ROSTER_SIZE || !Number.isInteger(slot))
     throw new Error("Invalid slot");
   const cards = team.cards.filter((c) => c.id !== team.lineup[slot]);
   const lineup = [...team.lineup];
@@ -191,19 +190,19 @@ export function resolvePlay(
   const o = (slot: number, s: number) => stat(off, slot, s),
     d = (slot: number, s: number) => stat(def, slot, s);
   const roll = () => Math.floor(rng() * 3) + Math.floor(rng() * 3) - 2;
-  const box = defense === "Stack the Box",
+  const box = defense === "Run Stop",
     blitz = defense === "Blitz",
-    deep = defense === "Deep Coverage",
-    contain = defense === "Contain / Spy";
-  const tackle = 0.6 * d(6, 6) + 0.4 * d(8, 6);
+    deep = defense === "Pass Coverage";
+  // Safety commits forward on Run Stop, stays deep on Pass Coverage.
+  const safetyHelp = box ? 0.45 : deep ? 0 : 0.2;
+  const tackle =
+    (1 - safetyHelp) * d(5, 6) +
+    safetyHelp * d(7, 6) +
+    (box ? 1 : blitz ? -1 : 0);
   if (PLAYS.indexOf(play) < 3) {
-    const carrier = play === "Inside Run" ? 1 : play === "Outside Run" ? 3 : 0;
-    const block = 0.7 * o(4, 4) + 0.3 * o(play === "Inside Run" ? 3 : 1, 4);
-    let resistance = 0.6 * d(7, 8) + 0.4 * d(6, 8);
-    if (box) resistance = 0.75 * resistance + 0.25 * d(9, 8) + 1.5;
-    if (deep) resistance -= 1;
-    if (contain && play !== "Inside Run")
-      resistance = 0.75 * resistance + 0.25 * d(9, 6) + 1.5;
+    const carrier = play === "QB Keep" ? 0 : 1;
+    const block = o(3, 4);
+    const resistance = d(4, 8);
     const edge =
       0.6 * (block - resistance) + 0.4 * (o(carrier, 1) - tackle) + roll();
     const band =
@@ -232,10 +231,8 @@ export function resolvePlay(
   }
   const screen = play === "Screen",
     long = play === "Deep Pass";
-  const protection = 0.7 * o(4, 3) + 0.3 * o(long ? 3 : screen ? 2 : 1, 3);
-  let pressure = 0.7 * d(7, 7) + 0.3 * d(6, 7);
-  if (blitz) pressure = 0.7 * pressure + 0.3 * d(9, 7) + 1.5;
-  if (deep || contain) pressure -= 1;
+  const protection = o(3, 3);
+  const pressure = blitz ? 0.65 * d(4, 7) + 0.35 * d(5, 7) + 1.5 : d(4, 7);
   const sack = clamp(
     0.08 +
       0.04 * (pressure - protection) +
@@ -249,9 +246,10 @@ export function resolvePlay(
       turnover: false,
       text: `Sack! ${defense} pressure (${pressure.toFixed(1)}) beat protection (${protection.toFixed(1)}).`,
     };
-  const quality = 0.55 * o(0, 0) + 0.45 * o(screen ? 3 : 2, 2);
-  let coverage = 0.65 * d(5, 5) + 0.35 * d(8, 5);
-  if (deep) coverage = 0.75 * coverage + 0.25 * d(9, 5) + (long ? 1.5 : -0.5);
+  const quality = 0.55 * o(0, 0) + 0.45 * o(screen ? 1 : 2, 2);
+  const coverageHelp = deep ? 0.45 : box ? 0 : 0.2;
+  let coverage = (1 - coverageHelp) * d(6, 5) + coverageHelp * d(7, 5);
+  if (deep) coverage += long ? 1.5 : -0.5;
   if (blitz) coverage -= screen ? 2 : 1;
   if (box) coverage -= long ? 1.5 : 0.5;
   const edge = quality - coverage;
@@ -274,7 +272,7 @@ export function resolvePlay(
       turnover: false,
       text: `Incomplete. ${play}: ${Math.round(completion * 100)}% completion chance after the matchup.`,
     };
-  const after = o(screen ? 3 : 2, 2) - tackle + roll();
+  const after = o(screen ? 1 : 2, 2) - tackle + roll();
   const yards = long
     ? clamp(Math.round(20 + after), 15, 30)
     : screen
@@ -283,7 +281,7 @@ export function resolvePlay(
   return {
     yards,
     turnover: false,
-    text: `Complete! Passing ${quality.toFixed(1)} / coverage ${coverage.toFixed(1)}. ${screen ? "Flex" : "WR"} gains ${yards} yards.`,
+    text: `Complete! Passing ${quality.toFixed(1)} / coverage ${coverage.toFixed(1)}. ${screen ? "RB" : "WR"} gains ${yards} yards.`,
   };
 }
 function finishPossession(g: Game): Game {

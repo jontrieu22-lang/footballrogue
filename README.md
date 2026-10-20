@@ -13,8 +13,8 @@ npm run ui
 
 Open the local URL and choose **Play against CPU** for solo play, or **Two players · pass & play** to share the device. The CPU drafts its own roster, commits its calls before yours, and automatically chooses up to one upgrade each round. Handoff screens hide cards and calls from casual viewing. This release is **solo vs CPU and local pass-and-play**, not online multiplayer. Refreshing starts a new session; there is no autosave yet.
 
-1. Each player receives 12 universal athlete cards with nine stats. Assign five offense and five defense; discard two.
-2. Offense secretly chooses one of six plays. Hand the device over for defense to choose one of five formations. Reveal and resolve.
+1. Each player receives 10 universal athlete cards with nine stats. Assign four offense and four defense; discard two.
+2. Offense secretly chooses one of six plays. Hand the device over for defense to choose one of four formations. Reveal and resolve.
 3. Four downs to gain ten yards. Touchdowns score seven; fourth-down field goals score three with distance-based odds.
 4. Both players receive one possession per round. First to 21 wins only after equal possessions, with a lead.
 5. Between rounds, each player receives three new cards and may replace one starter. Rearrange positions freely, then lock the roster.

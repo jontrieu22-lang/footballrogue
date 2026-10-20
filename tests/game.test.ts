@@ -14,8 +14,8 @@ import {
   type Team,
 } from "../src/game";
 const team = (prefix: string): Team => {
-  const cards = deal(12, prefix);
-  return lockTeam({ cards, lineup: cards.slice(0, 10).map((c) => c.id) });
+  const cards = deal(10, prefix);
+  return lockTeam({ cards, lineup: cards.slice(0, 8).map((c) => c.id) });
 };
 const game = () => newGame([team("a"), team("b")]);
 const touchdown = { yards: 100, turnover: false, text: "TD" };
@@ -31,16 +31,16 @@ describe("cards and lineups", () => {
   });
   it("discards two and forbids duplicate assignments", () => {
     const t = team("a");
-    expect(t.cards).toHaveLength(10);
+    expect(t.cards).toHaveLength(8);
     expect(() =>
-      lockTeam({ ...t, lineup: Array(10).fill(t.lineup[0]) }),
+      lockTeam({ ...t, lineup: Array(8).fill(t.lineup[0]) }),
     ).toThrow();
   });
-  it("replacement removes old card and retains ten unique starters", () => {
+  it("replacement removes old card and retains eight unique starters", () => {
     const t = team("a"),
       c = deal(1, "new")[0]!;
     const next = replaceCard(t, 3, c);
-    expect(next.cards).toHaveLength(10);
+    expect(next.cards).toHaveLength(8);
     expect(next.cards.some((c) => c.id === t.lineup[3])).toBe(false);
     expect(next.lineup[3]).toBe(c.id);
   });
@@ -145,11 +145,7 @@ it("plays complete matches with upgrades and valid state throughout", () => {
     while (g.winner === null && snaps < 1500) {
       if (g.upgrade) {
         const upgraded = g.teams.map((t, i) =>
-          replaceCard(
-            t,
-            match % 10,
-            deal(1, `m${match}-r${g.round}-p${i}`)[0]!,
-          ),
+          replaceCard(t, match % 8, deal(1, `m${match}-r${g.round}-p${i}`)[0]!),
         ) as [Team, Team];
         g = nextRound(g, upgraded);
       } else if (g.down === 4 && kickChance(117 - g.yard) > 0) {
@@ -161,13 +157,13 @@ it("plays complete matches with upgrades and valid state throughout", () => {
             g.teams[g.offense]!,
             g.teams[1 - g.offense]!,
             PLAYS[snaps % 6]!,
-            DEFENSES[snaps % 5]!,
+            DEFENSES[snaps % 4]!,
           ),
         );
       }
       expect(
         g.teams.every(
-          (t) => t.cards.length === 10 && new Set(t.lineup).size === 10,
+          (t) => t.cards.length === 8 && new Set(t.lineup).size === 8,
         ),
       ).toBe(true);
       expect(g.down).toBeGreaterThanOrEqual(1);
@@ -177,4 +173,34 @@ it("plays complete matches with upgrades and valid state throughout", () => {
     expect(g.winner).not.toBe(null);
     expect(g.possession).toBe(1);
   }
+});
+
+it("uses the RB for outside runs and screens in the eight-player game", () => {
+  const g = game();
+  const alter = (slot: number, value: number) => ({
+    ...g.teams[0],
+    cards: g.teams[0].cards.map((c) =>
+      c.id === g.teams[0].lineup[slot]
+        ? {
+            ...c,
+            stats: c.stats.map((v, i) => (i === 1 || i === 2 ? value : v)),
+          }
+        : c,
+    ),
+  });
+  expect(
+    resolvePlay(alter(1, 10), g.teams[1], "Outside Run", "Balanced", () => 0.5)
+      .yards,
+  ).toBeGreaterThan(
+    resolvePlay(alter(1, 1), g.teams[1], "Outside Run", "Balanced", () => 0.5)
+      .yards,
+  );
+  const screen = resolvePlay(
+    alter(1, 10),
+    g.teams[1],
+    "Screen",
+    "Blitz",
+    () => 0.5,
+  );
+  expect(screen.text).toContain("RB gains");
 });
