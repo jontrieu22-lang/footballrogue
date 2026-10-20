@@ -1,17 +1,12 @@
 {
   "name": "footballrogue",
-  "version": "0.1.0",
-  "description": "American football-based roguelike game",
+  "version": "0.2.0",
+  "description": "Two-player football card tactics",
   "type": "module",
   "private": true,
   "scripts": {
-    "demo": "tsx src/index.ts",
-    "sanity": "tsx scripts/sanity.ts",
-    "cards": "tsx scripts/cards.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "value": "tsx scripts/value.ts",
-    "develop": "tsx scripts/develop.ts",
     "ui": "vite --config web/vite.config.ts",
     "ui:build": "vite build --config web/vite.config.ts",
     "ui:preview": "vite preview --config web/vite.config.ts"

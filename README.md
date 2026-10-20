@@ -1,124 +1,50 @@
 # Football Rogue
 
-A browser-based, Madden-flavored **roguelike** where you run an NFL-style
-franchise one season at a time.
+A single-player or two-player, turn-based football card game. Build a team from a dealt hand, call hidden plays, and improve your lineup between rounds.
 
-You are a head coach on a short leash. Build a roster, pick schemes that
-counter your opponents, survive the draft, and win games — or ownership
-finds someone who can. Each season is a run.
+This replaces the former franchise simulator. The old game remains in Git history, not as another mode.
 
-## What kind of game is this?
-
-It looks like a football management sim, but the structure is a roguelike:
-
-| Roguelike convention | Football Rogue's version |
-|---|---|
-| Procedurally generated dungeons | Every league, roster, and draft class is generated fresh per run — no two franchises see the same league |
-| Permadeath | Career-ending injuries are permanent, and enough losing gets you **fired** — the run ends |
-| Risk/reward encounters | Play-calling, fake punts, and other in-game gambles are the moment-to-moment decisions |
-| Run structure | One season (17 games + playoffs + draft) = one run |
-| Meta-progression | What you bank when a run ends survives into the next franchise |
-| Escalating difficulty | The better your all-time reputation, the sharper the league gets |
-
-The "dungeon" is the season. The "monsters" are the 31 other teams. Your
-"health bar" is ownership's patience, and the failure state is real: miss
-expectations enough and you're out.
-
-## Core loop
-
-```
-Preseason: review roster, set your offensive/defensive scheme
-     │
-     v
-Regular Season (17 weeks): play each week, read the box scores,
-injury report, and standings, spend player development points
-     │
-     v
-Playoffs → Ownership review (patience up or down)
-     │
-     v
-Offseason: draft a procedurally generated rookie class
-(worst record picks first, scouting fog hides true ratings)
-     │
-     v
-Patience hits zero? ──> RUN OVER — bank meta progress, start a new franchise
-     │ no
-     └──> next season
-```
-
-## What makes it deep
-
-- **Schemes that counter each other.** Offense and defense schemes form a
-  soft rock-paper-scissors web, and each scheme rewards different player
-  traits — a zone corner is wasted in a blitz-heavy man defense.
-- **Madden-style two-tier player cards.** General physical traits (speed,
-  strength, awareness) plus positional skill groups (route running, pass
-  rush, coverage) that only exist where they matter.
-- **Skill trees per position.** Players earn development points from
-  expected points added, then specialize through a three-tier tree.
-- **Scouting fog of war.** Draft prospects show what your scouts *think*
-  they're worth, not the truth — and upgrades to your scouting network
-  narrow the error.
-- **A sim that respects football.** Play-by-play drives with real field
-  position, fourth-down decisions, field-goal range, clock management, and
-  expected points. Calibrated against real NFL rates.
-
-## Play it
+## Play
 
 ```sh
-npm install
-npm run ui        # open the game in your browser (localhost:5173)
+npm ci
+npm run ui
 ```
 
-There's also a headless demo of the sim engine:
+Open the local URL and choose **Play against CPU** for solo play, or **Two players · pass & play** to share the device. The CPU drafts its own roster, commits its calls before yours, and automatically chooses up to one upgrade each round. Handoff screens hide cards and calls from casual viewing. This release is **solo vs CPU and local pass-and-play**, not online multiplayer. Refreshing starts a new session; there is no autosave yet.
 
-```sh
-npm run demo      # simulates a season and prints a box score + standings
-```
+1. Each player receives 10 universal athlete cards with nine stats. Assign four offense and four defense; discard two.
+2. Offense secretly chooses one of six plays. Hand the device over for defense to choose one of four formations. Reveal and resolve.
+3. Four downs to gain ten yards. Touchdowns score seven; fourth-down field goals score three with distance-based odds.
+4. Both players receive one possession per round, starting at the opponent’s 45-yard line (college-overtime-inspired). First to 21 wins only after equal possessions, with a lead.
+5. Between rounds, each player receives three new cards and may replace one starter. Rearrange positions freely, then lock the roster.
+6. First possession alternates. After eight rounds, a leader wins; ties continue with paired possessions from the opponent's 20.
 
 ## Development
 
 ```sh
-npm test          # 112 unit tests across the sim, draft, and franchise loop
-npm run typecheck # TypeScript, no emit
-npm run sanity    # balances the sim against real NFL rates (points, yards,
-                  # possession counts, scheme-fit and development value)
-npm run value     # checks positional value ordering (QB should dominate)
-npm run develop   # shows how much player development is worth in wins
-npm run cards     # prints sample player cards
+npm test
+npm run typecheck
+npm run ui:build
 ```
 
-## Tech stack
+- `src/game.ts`: pure card, roster, play, kicking, and match rules.
+- `web/src/App.tsx`: private handoffs, roster builder, field, play calls, results, upgrades.
+- `tests/game.test.ts`: rules and state transitions.
+- `DESIGN.md`: current rules and balance assumptions.
 
-- **React + TypeScript + Vite** for the UI (`web/`)
-- The **simulation engine is pure TypeScript** and framework-agnostic, so it
-  runs headless in tests and balance scripts as well as in the browser
-- All state is client-side, persisted to `localStorage` — no backend needed
-- No real player names or likenesses: every team and player is original and
-  procedurally generated
+React + TypeScript + Vite. No account, backend, or external game service is required. Probabilities are initial game-balance values, not NFL statistical estimates.
 
-## Project layout
+Every snap now plays a short on-field card animation before the result. Cards show routes, blocking and pursuit; the ball follows runs, passes, turnovers and kicks. Skip moves directly to the same precomputed result. System reduced-motion preferences use a short static outcome view.
 
-```
-src/
-  generators/   league, team, and player generation (all procedural)
-  models/       player cards, attributes, archetypes, skill trees, team/league
-  sim/          drive engine, play calling, game sim, season, playoffs,
-                standings, schedule, expected points
-  schemes.ts    the scheme counter web and scheme-fit reweighting
-  draft/        draft room logic and procedural draft classes
-  progression/  skill development, injuries, AI development spending
-  franchise/    the roguelike run frame: patience, firing, offseason, saves
-web/            React front end
-scripts/        balance and measurement scripts (sanity, value, develop)
-tests/          vitest suite
-DESIGN.md       full game design document
-```
+## Reading your opponent
 
-## Status
+The scouting panel counts the opponent's last five revealed calls on the relevant side of the ball. It never displays the current hidden call. Offensive play cards show OL-vs-DL and runner/receiver matchup edges from your ratings and scouted opponent bounds before formation and safety effects. These are matchup comparisons, not win probabilities.
 
-The game is fully playable end to end: headless sim core, matchup-driven
-play engine, schemes, skill trees, procedural draft, and the complete
-franchise loop in the browser. The remaining roadmap work is the
-cross-run meta layer (banked progression and difficulty scaling) and the
-trade window. See `DESIGN.md` for the full picture.
+Upgrade offers recommend a role using weighted role fit. Select an offer to compare its relevant stat gains and losses against all eight starters before replacing anyone. CPU calls respond gradually to recent revealed runs, deep passes, blitzes, and coverage calls while retaining variety.
+
+## Gradual scouting
+Opponent names and positions are visible, but ratings start unknown. Each involved stat progresses through a lower bound, a bounded range, and its exact rating on the third observation. Sacks reveal only blocking/rush involvement; field goals reveal no athlete stats. Knowledge follows card identity across position changes and rounds; incoming cards start unknown. Matchup reads stay uncertain when bounds overlap. Result text and animations do not expose hidden ratings or derived probabilities. CPU defensive choices use the same knowledge bounds, while CPU offense uses its own team ratings and revealed call history. This is game information hiding, not protection against inspecting local browser memory.
+
+## Auto-select a draft
+Choose balanced, passing, or rushing offense and balanced, pass, or rush defense, then click **Auto-select team**. The assignment optimizer evaluates the entire ten-card hand using style-specific role weights and position priorities. It fills eight unique starters without discarding the other cards until you lock. Change preferences and run it again, or manually rearrange the suggestion. Preferences affect selection only—not card stats or available plays. The position guide and upgrade recommendations continue to show general balanced role fit.
