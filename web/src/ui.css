@@ -1446,4 +1446,30 @@ summary {
     overflow-wrap: anywhere;
   }
 }
-.field-card b { font-size: 9px; line-height: 1.6; }
+.field-card b {
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.playbook-heading {
+  scroll-margin-top: 16px;
+  border-left: 5px solid #ffe45c;
+  background: #192a58;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+.playbook-heading h2 {
+  margin: 8px 0;
+  color: #ffe45c;
+  font-size: 15px;
+}
+.playbook-heading p {
+  margin: 4px 0;
+  font-size: 12px;
+}
+.playbook-heading .last-snap-recap {
+  color: #d5e5ff;
+}
+.live-field {
+  scroll-margin-top: 12px;
+}

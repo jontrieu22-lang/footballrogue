@@ -1,7 +1,7 @@
 import { finishScoutedPlay, scoutRead, describeRead } from "../../src/scouting";
 import { matchups, tendencies, upgradeOptions } from "../../src/insights";
 import PlayAnimation, { type Replay } from "./PlayAnimation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ROLE_WEIGHTS,
   type OffenseFocus,
@@ -128,6 +128,22 @@ export default function App() {
     [swapped, setSwapped] = useState(false),
     [resultLines, setResultLines] = useState<string[]>([]),
     [showRules, setShowRules] = useState(false);
+  const playbookRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const showPlaybook = () => {
+    playbookRef.current?.focus({ preventScroll: true });
+    playbookRef.current?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    });
+  };
+  useEffect(() => {
+    if (phase === "offense" || phase === "defense") showPlaybook();
+    else if (phase === "animation")
+      fieldRef.current?.scrollIntoView({ block: "start" });
+  }, [phase]);
   const handoff = (p: number, next: Phase) => {
     if (next === "build") {
       setOffenseFocus("balanced");
@@ -581,7 +597,7 @@ export default function App() {
       )}
       {["offense", "defense", "animation", "result"].includes(phase) &&
         game && (
-          <div className="live-field">
+          <div className="live-field" ref={fieldRef}>
             {replay && (
               <PlayAnimation
                 key={replay.before.log.length}
@@ -622,7 +638,13 @@ export default function App() {
                       : "Next snap / possession"}{" "}
                     ↗
                   </button>
-                ) : null}
+                ) : (
+                  <button className="primary" onClick={showPlaybook}>
+                    {phase === "offense"
+                      ? "Choose next play ↓"
+                      : "Choose your defense ↓"}
+                  </button>
+                )}
                 <details>
                   <summary>Match history</summary>
                   {game.log.map((l, i) => (
@@ -717,6 +739,23 @@ export default function App() {
               probabilities.
             </p>
           )}
+          <div className="playbook-heading" ref={playbookRef} tabIndex={-1}>
+            <p className="eyebrow">
+              YOUR TURN · {game.down} & {game.toGo} ·{" "}
+              {game.yard >= 50
+                ? `OPPONENT’S ${100 - game.yard}`
+                : `OWN ${game.yard}`}
+            </p>
+            <h2>
+              {phase === "offense"
+                ? "Choose your next play ↓"
+                : "Choose your defense ↓"}
+            </h2>
+            {resultLines.length > 0 && (
+              <p className="last-snap-recap">{resultLines[0]}</p>
+            )}
+            <p>Tap a card to lock your call.</p>
+          </div>
           <div className="play-grid">
             {phase === "offense"
               ? PLAYS.map((p, i) => (
