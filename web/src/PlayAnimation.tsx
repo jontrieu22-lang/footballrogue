@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   SLOTS,
   clamp,
@@ -30,19 +30,21 @@ const defenseStart: Point[] = [
 export default function PlayAnimation({
   replay,
   onComplete,
+  completed = false,
 }: {
   replay: Replay;
   onComplete: () => void;
+  completed?: boolean;
 }) {
-  const fieldRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    fieldRef.current?.scrollIntoView({ block: "start" });
-  }, []);
   const [stage, setStage] = useState(0);
   const [reduced] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   useEffect(() => {
+    if (completed) {
+      setStage(3);
+      return;
+    }
     const timers = [
       setTimeout(() => setStage(1), 450),
       setTimeout(() => setStage(2), 1400),
@@ -57,7 +59,7 @@ export default function PlayAnimation({
       timers.forEach(clearTimeout);
       clearTimeout(done);
     };
-  }, [onComplete, reduced]);
+  }, [onComplete, reduced, completed]);
   const { before, after, play, defense, result } = replay;
   const isKick = play === "Field Goal",
     run = ["Inside Run", "Outside Run", "QB Keep"].includes(play),
@@ -133,7 +135,6 @@ export default function PlayAnimation({
   });
   return (
     <section
-      ref={fieldRef}
       className={`replay ${reduced ? "reduced-motion" : ""}`}
       aria-label="Animated play replay"
     >
@@ -150,9 +151,11 @@ export default function PlayAnimation({
               : `vs. ${defense} · ${before.down} & ${before.toGo}`}
           </p>
         </div>
-        <button className="quiet" onClick={onComplete}>
-          Skip animation →
-        </button>
+        {!completed && (
+          <button className="quiet" onClick={onComplete}>
+            Skip animation →
+          </button>
+        )}
       </div>
       <div className="replay-field" aria-hidden="true">
         <div className="replay-endzone">END ZONE</div>

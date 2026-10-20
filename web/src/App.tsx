@@ -141,6 +141,8 @@ export default function App() {
   };
   const start = (single = solo) => {
     setSolo(single);
+    setReplay(null);
+    setResultLines([]);
     setOffenseFocus("balanced");
     setDefenseFocus("balanced");
     setAutoNote("");
@@ -233,9 +235,10 @@ export default function App() {
     );
     setGame(replay.after);
     setPending(null);
-    setReplay(null);
-    setPhase("result");
-  }, [replay]);
+    if (solo && replay.after.winner === null && !replay.after.upgrade) {
+      prepareTurn(replay.after);
+    } else setPhase("result");
+  }, [replay, solo]);
   const continueGame = () => {
     if (!game) return;
     if (game.upgrade) {
@@ -576,6 +579,60 @@ export default function App() {
           </div>
         </>
       )}
+      {["offense", "defense", "animation", "result"].includes(phase) &&
+        game && (
+          <div className="live-field">
+            {replay && (
+              <PlayAnimation
+                key={replay.before.log.length}
+                replay={replay}
+                onComplete={finishAnimation}
+                completed={phase !== "animation"}
+              />
+            )}
+            {phase !== "animation" && resultLines.length > 0 && game && (
+              <section className="inline-result">
+                <p className="eyebrow">
+                  {game.winner !== null ? "FINAL WHISTLE" : "LAST PLAY"}
+                </p>
+                <h2>
+                  {game.winner !== null
+                    ? solo
+                      ? game.winner === 0
+                        ? "You win."
+                        : "CPU wins."
+                      : `Player ${game.winner + 1} wins.`
+                    : game.upgrade
+                      ? "Round complete."
+                      : "Back to the huddle."}
+                </h2>
+                {resultLines.map((line, i) => (
+                  <p className="result-line" key={i} role="status">
+                    {line}
+                  </p>
+                ))}
+                {game.winner !== null ? (
+                  <button className="primary" onClick={() => start()}>
+                    Deal a rematch ↗
+                  </button>
+                ) : phase === "result" ? (
+                  <button className="primary" onClick={continueGame}>
+                    {game.upgrade
+                      ? "Draft your upgrades"
+                      : "Next snap / possession"}{" "}
+                    ↗
+                  </button>
+                ) : null}
+                <details>
+                  <summary>Match history</summary>
+                  {game.log.map((l, i) => (
+                    <p key={i}>{l}</p>
+                  ))}
+                </details>
+              </section>
+            )}
+          </div>
+        )}
       {(phase === "offense" || phase === "defense") && game && (
         <>
           <div className="section-title">
@@ -762,48 +819,6 @@ export default function App() {
             </div>
           </details>
         </>
-      )}
-      {phase === "animation" && replay && (
-        <PlayAnimation replay={replay} onComplete={finishAnimation} />
-      )}
-      {phase === "result" && game && (
-        <section className="result">
-          <p className="eyebrow">
-            {game.winner !== null ? "FINAL WHISTLE" : "THE REVEAL"}
-          </p>
-          <h1>
-            {game.winner !== null
-              ? solo
-                ? game.winner === 0
-                  ? "You win."
-                  : "CPU wins."
-                : `Player ${game.winner + 1} wins.`
-              : game.upgrade
-                ? "Round complete."
-                : "Play resolved."}
-          </h1>
-          {resultLines.map((line, i) => (
-            <p className="result-line" key={i}>
-              {line}
-            </p>
-          ))}
-          {game.winner !== null ? (
-            <button className="primary" onClick={() => start()}>
-              Deal a rematch ↗
-            </button>
-          ) : (
-            <button className="primary" onClick={continueGame}>
-              {game.upgrade ? "Draft your upgrades" : "Next snap / possession"}{" "}
-              ↗
-            </button>
-          )}
-          <details>
-            <summary>Match history</summary>
-            {game.log.map((l, i) => (
-              <p key={i}>{l}</p>
-            ))}
-          </details>
-        </section>
       )}
       {phase === "upgrade" && (
         <>

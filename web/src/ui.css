@@ -992,3 +992,27 @@ footer {
   outline: 3px solid #dafa73;
   outline-offset: 2px;
 }
+
+/* Keep the last snap and its outcome in the play-calling flow. */
+.live-field {
+  margin-block: 1rem;
+}
+.inline-result {
+  border-left: 3px solid var(--accent, #d9ff64);
+  padding: 1rem 1.25rem;
+  background: #ffffff08;
+}
+.inline-result h2 {
+  font-size: 1.2rem;
+  margin: 0.25rem 0;
+}
+.inline-result .result-line {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+.inline-result details {
+  margin-top: 0.75rem;
+}
+.live-field .replay {
+  margin-bottom: 0;
+}
