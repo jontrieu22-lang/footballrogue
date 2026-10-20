@@ -421,9 +421,9 @@ export default function App() {
         <section className="hero">
           <p className="eyebrow">YOUR TEAM. TEN CARDS. YOUR CALL.</p>
           <h1>
-            Build your hand.
+            Draft your squad.
             <br />
-            Read their game.
+            Rule the turf.
           </h1>
           <p className="intro">
             Turn a handful of athletes into a winning team. Call the play,
@@ -604,7 +604,7 @@ export default function App() {
                       : `Player ${game.winner + 1} wins.`
                     : game.upgrade
                       ? "Round complete."
-                      : "Back to the huddle."}
+                      : "Next snap!"}
                 </h2>
                 {resultLines.map((line, i) => (
                   <p className="result-line" key={i} role="status">
@@ -642,7 +642,7 @@ export default function App() {
                 {phase === "offense" ? "OFFENSIVE CALL" : "DEFENSIVE CALL"}
               </p>
               <h1>
-                {phase === "offense" ? "Find the opening." : "Make your read."}
+                {phase === "offense" ? "Pick your play." : "Call your defense."}
               </h1>
             </div>
             <div className="down">
