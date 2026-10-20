@@ -3,6 +3,7 @@ import { matchups, tendencies, upgradeOptions } from "../../src/insights";
 import PlayAnimation, { type Replay } from "./PlayAnimation";
 import { useCallback, useState } from "react";
 import {
+  ROLE_WEIGHTS,
   buildCpuTeam,
   upgradeCpu,
   cpuOffense,
@@ -56,6 +57,57 @@ const defenseNotes = [
   "LB joins DL to pressure the QB. Exposes screens and runs.",
   "Safety helps CB against deep passes. LB handles runs alone.",
 ];
+const positionJobs = [
+  "Throws passes and carries on QB Keep.",
+  "Carries inside/outside runs and catches screens.",
+  "Catches quick and deep passes.",
+  "Run blocking faces DL run defense; pass blocking faces DL pass rush.",
+  "Opposes the OL: stops running lanes and pressures the QB.",
+  "Tackles runners and receivers; adds pass rush when blitzing.",
+  "Covers the intended receiver.",
+  "Helps coverage or tackling according to your defensive call.",
+];
+function PositionGuide() {
+  return (
+    <details className="position-guide">
+      <summary>Position value · stats & weights</summary>
+      <p>
+        Role fit is a weighted average on a 1–10 scale, used for CPU roster
+        building and upgrade recommendations. A higher fit means a better
+        general match for that position—not a guaranteed better play.
+      </p>
+      <div className="comparison-grid">
+        {SLOTS.map((slot, i) => (
+          <div key={slot}>
+            <b>{slot}</b>
+            <p>{positionJobs[i]}</p>
+            {ROLE_WEIGHTS[i]!.map((weight, stat) =>
+              weight > 0 ? (
+                <span key={stat}>
+                  {STATS[stat]} <strong>{Math.round(weight * 100)}%</strong>
+                </span>
+              ) : null,
+            )}
+          </div>
+        ))}
+      </div>
+      <p>
+        <strong>On the field:</strong> Runs weigh the OL-vs-DL blocking edge 60%
+        and the runner-vs-tackling edge 40%. Pass quality is 55% QB passing +
+        45% target catching, after a separate protection check. OL uses 100% run
+        blocking on runs or 100% pass blocking on passes—its 50/50 role fit is
+        only a roster comparison.
+      </p>
+      <p>
+        <strong>Defense changes the matchup:</strong> Safety contributes 20% of
+        coverage/tackling in Balanced; Run Stop raises tackling help to 45% and
+        removes coverage help; Pass Coverage raises coverage help to 45% and
+        removes tackling help. Blitz pressure uses 65% DL + 35% LB pass rush,
+        with a pressure bonus and weaker coverage/tackling.
+      </p>
+    </details>
+  );
+}
 export default function App() {
   const [replay, setReplay] = useState<Replay | null>(null);
   const [solo, setSolo] = useState(true);
@@ -429,6 +481,7 @@ export default function App() {
               {ROSTER_SIZE}
             </button>
           </div>
+          <PositionGuide />
           {lineup(true)}
           <div className="card-grid">
             {teams[player]!.cards.map((c) => card(c))}
@@ -727,6 +780,7 @@ export default function App() {
                 </div>
               </section>
             )}
+          <PositionGuide />
           {lineup(true)}
           <h3>YOUR STARTERS · SELECT TO REARRANGE</h3>
           <div className="card-grid">

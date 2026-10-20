@@ -938,3 +938,17 @@ footer {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.position-guide > p {
+  font-size: 13px;
+  max-width: 1000px;
+}
+.position-guide .comparison-grid p {
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 38px;
+  margin: 0 0 12px;
+}
+.position-guide summary {
+  font-weight: 700;
+  color: #dafa73;
+}

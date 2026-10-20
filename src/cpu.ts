@@ -10,7 +10,7 @@ import {
   type Play,
   type Defense,
 } from "./game";
-const weights = [
+export const ROLE_WEIGHTS = [
   [0.75, 0.25, 0, 0, 0, 0, 0, 0, 0],
   [0, 0.65, 0.35, 0, 0, 0, 0, 0, 0],
   [0, 0, 1, 0, 0, 0, 0, 0, 0],
@@ -21,7 +21,7 @@ const weights = [
   [0, 0, 0, 0, 0, 0.5, 0.5, 0, 0],
 ];
 export const roleFit = (c: Card, slot: number) =>
-  weights[slot]!.reduce((sum, w, i) => sum + w * c.stats[i]!, 0);
+  ROLE_WEIGHTS[slot]!.reduce((sum, w, i) => sum + w * c.stats[i]!, 0);
 // Exact assignment over a 10-card hand: maximize fit without reusing athletes.
 export function buildCpuTeam(cards: Card[]): Team {
   if (cards.length < ROSTER_SIZE || cards.length > HAND_SIZE)
