@@ -55,6 +55,7 @@ export interface Result {
   text: string;
 }
 export interface Game {
+  calls: { offense: number; play: Play; defense: Defense }[];
   teams: [Team, Team];
   scores: [number, number];
   round: number;
@@ -148,6 +149,7 @@ export function replaceCard(team: Team, slot: number, card: Card): Team {
 export function newGame(teams: [Team, Team]): Game {
   return {
     teams: teams.map(lockTeam) as [Team, Team],
+    calls: [],
     scores: [0, 0],
     round: 1,
     possession: 0,

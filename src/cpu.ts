@@ -19,7 +19,7 @@ const weights = [
   [0, 0, 0, 0, 0, 1, 0, 0, 0],
   [0, 0, 0, 0, 0, 0.5, 0.5, 0, 0],
 ];
-const fit = (c: Card, slot: number) =>
+export const roleFit = (c: Card, slot: number) =>
   weights[slot]!.reduce((sum, w, i) => sum + w * c.stats[i]!, 0);
 // Exact assignment over a 10-card hand: maximize fit without reusing athletes.
 export function buildCpuTeam(cards: Card[]): Team {
@@ -34,7 +34,7 @@ export function buildCpuTeam(cards: Card[]): Team {
       cards.forEach((card, i) => {
         if (mask & (1 << i)) return;
         const key = mask | (1 << i),
-          score = state.score + fit(card, slot);
+          score = state.score + roleFit(card, slot);
         if (score > (next.get(key)?.score ?? -Infinity))
           next.set(key, { score, lineup: [...state.lineup, card.id] });
       });
@@ -52,7 +52,7 @@ export function upgradeCpu(team: Team, offers: Card[]): Team {
     score = best.lineup.reduce(
       (s, id, i) =>
         s +
-        fit(
+        roleFit(
           best.cards.find((c) => c.id === id)!,
           i,
         ),
@@ -63,7 +63,7 @@ export function upgradeCpu(team: Team, offers: Card[]): Team {
     const value = candidate.lineup.reduce(
       (s, id, i) =>
         s +
-        fit(
+        roleFit(
           candidate.cards.find((c) => c.id === id)!,
           i,
         ),
@@ -94,13 +94,21 @@ export function cpuOffense(g: Game, rng = Math.random): Play | "kick" {
     (g.toGo > 2 || g.scores[g.offense]! + 3 >= 21)
   )
     return "kick";
+  const recent = g.calls.filter((c) => c.offense === g.offense).slice(-5);
+  const blitzReads = recent.filter((c) => c.defense === "Blitz").length;
+  const coverageReads = recent.filter(
+    (c) => c.defense === "Pass Coverage",
+  ).length;
   return weighted<Play>(
     [
-      ["Inside Run", r(1, 1) + r(3, 4) + (g.toGo <= 3 ? 5 : 0)],
+      [
+        "Inside Run",
+        r(1, 1) + r(3, 4) + (g.toGo <= 3 ? 5 : 0) + coverageReads * 2,
+      ],
       ["Outside Run", r(1, 1) + r(3, 4)],
       ["QB Keep", r(0, 1) + r(3, 4)],
       ["Quick Pass", r(0, 0) + r(2, 2)],
-      ["Screen", r(0, 0) + r(1, 2)],
+      ["Screen", r(0, 0) + r(1, 2) + blitzReads * 3],
       ["Deep Pass", r(0, 0) + r(2, 2) + (g.toGo >= 8 ? 5 : 0)],
     ],
     rng,
@@ -110,12 +118,17 @@ export function cpuDefense(g: Game, rng = Math.random): Defense {
   const t = g.teams[g.offense]!,
     run = rating(t, 1, 1) + rating(t, 3, 4),
     pass = rating(t, 0, 0) + rating(t, 2, 2);
+  const recent = g.calls.filter((c) => c.offense === g.offense).slice(-5);
+  const runReads = recent.filter((c) =>
+    ["Inside Run", "Outside Run", "QB Keep"].includes(c.play),
+  ).length;
+  const deepReads = recent.filter((c) => c.play === "Deep Pass").length;
   return weighted<Defense>(
     [
       ["Balanced", 8],
-      ["Run Stop", run + (g.toGo <= 3 ? 7 : 0)],
+      ["Run Stop", run + (g.toGo <= 3 ? 7 : 0) + runReads * 2],
       ["Blitz", 10],
-      ["Pass Coverage", pass + (g.toGo >= 8 ? 5 : 0)],
+      ["Pass Coverage", pass + (g.toGo >= 8 ? 5 : 0) + deepReads * 3],
     ],
     rng,
   );

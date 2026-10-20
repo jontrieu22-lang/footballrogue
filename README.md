@@ -36,3 +36,9 @@ npm run ui:build
 React + TypeScript + Vite. No account, backend, or external game service is required. Probabilities are initial game-balance values, not NFL statistical estimates.
 
 Every snap now plays a short on-field card animation before the result. Cards show routes, blocking and pursuit; the ball follows runs, passes, turnovers and kicks. Skip moves directly to the same precomputed result. System reduced-motion preferences use a short static outcome view.
+
+## Reading your opponent
+
+The scouting panel counts the opponent's last five revealed calls on the relevant side of the ball. It never displays the current hidden call. Offensive play cards show OL-vs-DL and runner/receiver matchup edges from visible stats before formation and safety effects. These are matchup comparisons, not win probabilities.
+
+Upgrade offers recommend a role using weighted role fit. Select an offer to compare its relevant stat gains and losses against all eight starters before replacing anyone. CPU calls respond gradually to recent revealed runs, deep passes, blitzes, and coverage calls while retaining variety.

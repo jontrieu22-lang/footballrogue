@@ -1,3 +1,4 @@
+import { matchups, tendencies, upgradeOptions } from "../../src/insights";
 import PlayAnimation, { type Replay } from "./PlayAnimation";
 import { useCallback, useState } from "react";
 import {
@@ -146,7 +147,10 @@ export default function App() {
     );
     setReplay({
       before,
-      after: applyResult(before, result),
+      after: {
+        ...applyResult(before, result),
+        calls: [...before.calls, { offense: before.offense, play, defense }],
+      },
       play,
       defense,
       result,
@@ -214,6 +218,29 @@ export default function App() {
         </span>
       </span>
       <strong>{c.name}</strong>
+      {offer &&
+        !swapped &&
+        (() => {
+          const best = upgradeOptions(teams[player]!, c)[0]!;
+          return (
+            <div className="upgrade-hint">
+              <b>
+                {best.fit > 0
+                  ? `Best fit: ${best.slot}`
+                  : "No clear role upgrade"}
+              </b>
+              <span>
+                {best.slot} vs {best.current}:{" "}
+                {best.changes
+                  .map(
+                    (change) =>
+                      `${STATS[change.stat]} ${change.delta > 0 ? "+" : ""}${change.delta}`,
+                  )
+                  .join(" · ")}
+              </span>
+            </div>
+          );
+        })()}
       <div className="stats">
         {STATS.map((s, i) => (
           <div key={s}>
@@ -298,11 +325,11 @@ export default function App() {
             + 17. A safety scores 2 for defense.
           </p>
           <p>
-            Each round gives both players one possession from the opponent’s 45-yard line. First to 21 wins only
-            after equal possessions, and only with a lead. Between rounds, each
-            gets three cards and can swap in one, or keep their team. Rosters
-            are public after locking. After eight rounds, a leader wins; ties
-            continue from the opponent’s 20.
+            Each round gives both players one possession from the opponent’s
+            45-yard line. First to 21 wins only after equal possessions, and
+            only with a lead. Between rounds, each gets three cards and can swap
+            in one, or keep their team. Rosters are public after locking. After
+            eight rounds, a leader wins; ties continue from the opponent’s 20.
           </p>
           <p>
             This is local pass-and-play. Hands are hidden by handoff screens,
@@ -442,6 +469,40 @@ export default function App() {
                 : "CPU offense is locked in. Choose your defense."}
             </p>
           )}
+          <aside className="scout-report">
+            <h3>OPPONENT TENDENCIES</h3>
+            {(() => {
+              const report = tendencies(
+                game.calls,
+                1 - player,
+                phase === "offense" ? "defense" : "offense",
+              );
+              return report.total ? (
+                <>
+                  <p>
+                    Last {report.total} revealed{" "}
+                    {phase === "offense" ? "defensive" : "offensive"} calls
+                  </p>
+                  <div className="tendency-chips">
+                    {report.counts.map((c) => (
+                      <span key={c.name}>
+                        {c.name}{" "}
+                        <b>
+                          {c.count}/{report.total}
+                        </b>
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p>
+                  No revealed calls yet. Watch for patterns as the game
+                  develops.
+                </p>
+              );
+            })()}
+            <small>History only. The current call is hidden.</small>
+          </aside>
           <div className="field">
             <div className="ball" style={{ left: `${game.yard}%` }}>
               ◆
@@ -454,6 +515,13 @@ export default function App() {
             <span>50</span>
             <span>TOUCHDOWN →</span>
           </div>
+          {phase === "offense" && (
+            <p className="muted">
+              Matchup reads compare visible card stats before formation bonuses,
+              safety help, or execution rolls. They are not success
+              probabilities.
+            </p>
+          )}
           <div className="play-grid">
             {phase === "offense"
               ? PLAYS.map((p, i) => (
@@ -473,6 +541,34 @@ export default function App() {
                     </span>
                     <h2>{p}</h2>
                     <p>{descriptions[i]}</p>
+                    <div className="matchup-read">
+                      {matchups(
+                        game.teams[game.offense]!,
+                        game.teams[1 - game.offense]!,
+                        p,
+                      ).map((m) => (
+                        <span key={m.label}>
+                          {m.label}
+                          <b
+                            className={
+                              m.edge >= 1
+                                ? "positive"
+                                : m.edge <= -1
+                                  ? "negative"
+                                  : ""
+                            }
+                          >
+                            {m.edge >= 1
+                              ? "Advantage"
+                              : m.edge <= -1
+                                ? "Disadvantage"
+                                : "Even"}{" "}
+                            ({m.edge > 0 ? "+" : ""}
+                            {m.edge.toFixed(1)})
+                          </b>
+                        </span>
+                      ))}
+                    </div>
                     <b>LOCK PLAY ↗</b>
                   </button>
                 ))
@@ -592,6 +688,46 @@ export default function App() {
           <div className="offer-grid">
             {offers[player]!.map((c) => card(c, true))}
           </div>
+          {selected &&
+            offers[player]!.some((c) => c.id === selected) &&
+            !swapped && (
+              <section className="upgrade-comparison">
+                <h3>WHERE DOES THIS CARD HELP?</h3>
+                <p>
+                  Compare role-relevant stats. Select a position below to
+                  replace its current starter.
+                </p>
+                <div className="comparison-grid">
+                  {upgradeOptions(
+                    teams[player]!,
+                    offers[player]!.find((c) => c.id === selected)!,
+                  ).map((o) => (
+                    <div key={o.slot}>
+                      <b>
+                        {o.slot} · {o.current}
+                      </b>
+                      {o.changes.map((c) => (
+                        <span key={c.stat}>
+                          {STATS[c.stat]}{" "}
+                          <strong
+                            className={
+                              c.delta > 0
+                                ? "positive"
+                                : c.delta < 0
+                                  ? "negative"
+                                  : ""
+                            }
+                          >
+                            {c.delta > 0 ? "+" : ""}
+                            {c.delta}
+                          </strong>
+                        </span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           {lineup(true)}
           <h3>YOUR STARTERS · SELECT TO REARRANGE</h3>
           <div className="card-grid">

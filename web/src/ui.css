@@ -838,3 +838,103 @@ footer {
     font-size: 20px;
   }
 }
+.scout-report,
+.upgrade-comparison {
+  padding: 20px;
+  background: #1c2b23;
+  border: 1px solid #40523e;
+  border-radius: 8px;
+  margin: 18px 0;
+}
+.scout-report h3,
+.upgrade-comparison h3 {
+  margin: 0 0 8px;
+}
+.scout-report p {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.scout-report small {
+  display: block;
+  color: #a4b199;
+  margin-top: 12px;
+}
+.tendency-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tendency-chips span {
+  padding: 8px 12px;
+  background: #2b402e;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.tendency-chips b {
+  color: #dafa73;
+  margin-left: 8px;
+}
+.matchup-read {
+  border-top: 1px solid #4a5b43;
+  margin: 16px 0 0;
+  padding-top: 12px;
+}
+.matchup-read span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: #b6c4aa;
+  margin-bottom: 10px;
+}
+.matchup-read b {
+  font-size: 12px;
+}
+.positive {
+  color: #dafa73;
+}
+.negative {
+  color: #f0a58e;
+}
+.upgrade-hint {
+  background: #24362b;
+  color: #eff3e8;
+  border-radius: 4px;
+  padding: 9px;
+  margin: 10px 0;
+  font-size: 11px;
+}
+.upgrade-hint b,
+.upgrade-hint span {
+  display: block;
+}
+.upgrade-hint span {
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.comparison-grid > div {
+  border: 1px solid #42543d;
+  padding: 12px;
+  border-radius: 5px;
+}
+.comparison-grid b {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.comparison-grid span {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+}
+@media (max-width: 700px) {
+  .comparison-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
