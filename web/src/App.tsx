@@ -4,6 +4,8 @@ import PlayAnimation, { type Replay } from "./PlayAnimation";
 import { useCallback, useState } from "react";
 import {
   ROLE_WEIGHTS,
+  type OffenseFocus,
+  type DefenseFocus,
   buildCpuTeam,
   upgradeCpu,
   cpuOffense,
@@ -109,6 +111,9 @@ function PositionGuide() {
   );
 }
 export default function App() {
+  const [offenseFocus, setOffenseFocus] = useState<OffenseFocus>("balanced");
+  const [defenseFocus, setDefenseFocus] = useState<DefenseFocus>("balanced");
+  const [autoNote, setAutoNote] = useState("");
   const [replay, setReplay] = useState<Replay | null>(null);
   const [solo, setSolo] = useState(true);
   const [cpuCall, setCpuCall] = useState<Defense>("Balanced");
@@ -124,6 +129,11 @@ export default function App() {
     [resultLines, setResultLines] = useState<string[]>([]),
     [showRules, setShowRules] = useState(false);
   const handoff = (p: number, next: Phase) => {
+    if (next === "build") {
+      setOffenseFocus("balanced");
+      setDefenseFocus("balanced");
+      setAutoNote("");
+    }
     setPlayer(p);
     setDestination(next);
     setSelected(null);
@@ -131,6 +141,9 @@ export default function App() {
   };
   const start = (single = solo) => {
     setSolo(single);
+    setOffenseFocus("balanced");
+    setDefenseFocus("balanced");
+    setAutoNote("");
     setPending(null);
     setSelected(null);
     setPlayer(0);
@@ -481,6 +494,81 @@ export default function App() {
               {ROSTER_SIZE}
             </button>
           </div>
+          <section className="auto-draft">
+            <h3>AUTO-SELECT YOUR TEAM</h3>
+            <p>
+              Choose a style for each side, then fill all eight positions. Your
+              full ten-card hand stays available until you lock the team.
+            </p>
+            <div className="draft-controls">
+              <label>
+                Offense
+                <select
+                  value={offenseFocus}
+                  onChange={(e) => {
+                    setOffenseFocus(e.target.value as OffenseFocus);
+                    setAutoNote("");
+                  }}
+                >
+                  <option value="balanced">Balanced offense</option>
+                  <option value="passing">Passing offense</option>
+                  <option value="rushing">Rushing offense</option>
+                </select>
+              </label>
+              <label>
+                Defense
+                <select
+                  value={defenseFocus}
+                  onChange={(e) => {
+                    setDefenseFocus(e.target.value as DefenseFocus);
+                    setAutoNote("");
+                  }}
+                >
+                  <option value="balanced">Balanced defense</option>
+                  <option value="pass">Pass defense</option>
+                  <option value="rush">Rush defense</option>
+                </select>
+              </label>
+              <button
+                className="primary"
+                onClick={() => {
+                  setTeams((old) => {
+                    const next = [...old] as [Team, Team];
+                    const team = old[player]!;
+                    next[player] = {
+                      ...team,
+                      lineup: buildCpuTeam(team.cards, {
+                        offense: offenseFocus,
+                        defense: defenseFocus,
+                      }).lineup,
+                    };
+                    return next;
+                  });
+                  setSelected(null);
+                  setAutoNote(
+                    "Eight starters selected. Review the lineup, rearrange any cards, or try another style before locking.",
+                  );
+                }}
+              >
+                Auto-select team
+              </button>
+            </div>
+            <p className="muted">
+              {offenseFocus === "passing"
+                ? "Prioritizes QB passing, receiving, and OL pass protection."
+                : offenseFocus === "rushing"
+                  ? "Prioritizes RB/QB rushing and OL run blocking."
+                  : "Balances your passing and running options."}{" "}
+              {defenseFocus === "pass"
+                ? "Prioritizes coverage and pass rush."
+                : defenseFocus === "rush"
+                  ? "Prioritizes DL run defense and LB/safety tackling."
+                  : "Balances coverage, tackling, and pressure."}{" "}
+              These preferences guide the lineup only; they do not change card
+              stats or restrict play calls.
+            </p>
+            {autoNote && <p role="status">{autoNote}</p>}
+          </section>
           <PositionGuide />
           {lineup(true)}
           <div className="card-grid">

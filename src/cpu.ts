@@ -22,8 +22,91 @@ export const ROLE_WEIGHTS = [
 ];
 export const roleFit = (c: Card, slot: number) =>
   ROLE_WEIGHTS[slot]!.reduce((sum, w, i) => sum + w * c.stats[i]!, 0);
+export type OffenseFocus = "balanced" | "passing" | "rushing";
+export type DefenseFocus = "balanced" | "pass" | "rush";
+export interface DraftFocus {
+  offense: OffenseFocus;
+  defense: DefenseFocus;
+}
+export function draftFit(card: Card, slot: number, focus: DraftFocus): number {
+  const weights = [...ROLE_WEIGHTS[slot]!];
+  let importance = 1;
+  if (focus.offense === "passing") {
+    if (slot === 0) {
+      weights[0] = 1;
+      weights[1] = 0;
+      importance = 1.25;
+    }
+    if (slot === 1) {
+      weights[1] = 0.25;
+      weights[2] = 0.75;
+      importance = 0.75;
+    }
+    if (slot === 2) importance = 1.25;
+    if (slot === 3) {
+      weights[3] = 0.85;
+      weights[4] = 0.15;
+    }
+  }
+  if (focus.offense === "rushing") {
+    if (slot === 0) {
+      weights[0] = 0.3;
+      weights[1] = 0.7;
+    }
+    if (slot === 1) {
+      weights[1] = 0.95;
+      weights[2] = 0.05;
+      importance = 1.3;
+    }
+    if (slot === 2) importance = 0.6;
+    if (slot === 3) {
+      weights[3] = 0.15;
+      weights[4] = 0.85;
+      importance = 1.1;
+    }
+  }
+  if (focus.defense === "pass") {
+    if (slot === 4) {
+      weights[7] = 0.85;
+      weights[8] = 0.15;
+    }
+    if (slot === 5) {
+      weights[6] = 0.4;
+      weights[7] = 0.6;
+      importance = 0.75;
+    }
+    if (slot === 6) importance = 1.25;
+    if (slot === 7) {
+      weights[5] = 0.85;
+      weights[6] = 0.15;
+    }
+  }
+  if (focus.defense === "rush") {
+    if (slot === 4) {
+      weights[7] = 0.15;
+      weights[8] = 0.85;
+      importance = 1.2;
+    }
+    if (slot === 5) {
+      weights[6] = 0.95;
+      weights[7] = 0.05;
+      importance = 1.2;
+    }
+    if (slot === 6) importance = 0.6;
+    if (slot === 7) {
+      weights[5] = 0.15;
+      weights[6] = 0.85;
+    }
+  }
+  return (
+    importance * weights.reduce((sum, w, i) => sum + w * card.stats[i]!, 0)
+  );
+}
 // Exact assignment over a 10-card hand: maximize fit without reusing athletes.
-export function buildCpuTeam(cards: Card[]): Team {
+export function buildCpuTeam(
+  cards: Card[],
+  focus: DraftFocus = { offense: "balanced", defense: "balanced" },
+): Team {
   if (cards.length < ROSTER_SIZE || cards.length > HAND_SIZE)
     throw Error("CPU requires 8–10 cards");
   let states = new Map<number, { score: number; lineup: string[] }>([
@@ -35,7 +118,7 @@ export function buildCpuTeam(cards: Card[]): Team {
       cards.forEach((card, i) => {
         if (mask & (1 << i)) return;
         const key = mask | (1 << i),
-          score = state.score + roleFit(card, slot);
+          score = state.score + draftFit(card, slot, focus);
         if (score > (next.get(key)?.score ?? -Infinity))
           next.set(key, { score, lineup: [...state.lineup, card.id] });
       });

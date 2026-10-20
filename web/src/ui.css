@@ -952,3 +952,43 @@ footer {
   font-weight: 700;
   color: #dafa73;
 }
+.auto-draft {
+  background: #1c2b23;
+  border: 1px solid #40523e;
+  padding: 22px;
+  border-radius: 8px;
+  margin-bottom: 22px;
+}
+.auto-draft h3 {
+  margin-top: 0;
+  color: #dafa73;
+}
+.auto-draft p {
+  font-size: 13px;
+}
+.draft-controls {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.draft-controls label {
+  display: flex;
+  flex: 1;
+  min-width: 170px;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.draft-controls select {
+  background: #101a18;
+  color: #eff3e5;
+  font: inherit;
+  border: 1px solid #647757;
+  border-radius: 5px;
+  padding: 14px;
+}
+.draft-controls select:focus-visible {
+  outline: 3px solid #dafa73;
+  outline-offset: 2px;
+}
