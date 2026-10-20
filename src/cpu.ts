@@ -1,3 +1,4 @@
+import { scoutRead } from "./scouting";
 import {
   lockTeam,
   ROSTER_SIZE,
@@ -115,9 +116,14 @@ export function cpuOffense(g: Game, rng = Math.random): Play | "kick" {
   );
 }
 export function cpuDefense(g: Game, rng = Math.random): Defense {
-  const t = g.teams[g.offense]!,
-    run = rating(t, 1, 1) + rating(t, 3, 4),
-    pass = rating(t, 0, 0) + rating(t, 2, 2);
+  const t = g.teams[g.offense]!;
+  const known = (slot: number, stat: number) => {
+    const card = t.cards.find((c) => c.id === t.lineup[slot])!;
+    const r = scoutRead(g, 1 - g.offense, card.id, stat);
+    return (r.min + r.max) / 2;
+  };
+  const run = known(1, 1) + known(3, 4),
+    pass = known(0, 0) + known(2, 2);
   const recent = g.calls.filter((c) => c.offense === g.offense).slice(-5);
   const runReads = recent.filter((c) =>
     ["Inside Run", "Outside Run", "QB Keep"].includes(c.play),

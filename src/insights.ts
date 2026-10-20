@@ -1,8 +1,10 @@
+import { scoutRead, describeRead } from "./scouting";
 import {
   PLAYS,
   DEFENSES,
   SLOTS,
   type Team,
+  type Game,
   type Card,
   type Play,
   type Defense,
@@ -15,29 +17,58 @@ export interface CallRecord {
 }
 const stat = (t: Team, slot: number, s: number) =>
   t.cards.find((c) => c.id === t.lineup[slot])!.stats[s]!;
-export function matchups(off: Team, def: Team, play: Play) {
+export function matchups(
+  off: Team,
+  def: Team,
+  play: Play,
+  game: Game,
+  viewer: number,
+) {
   const run = PLAYS.indexOf(play) < 3,
     screen = play === "Screen";
+  const pair = (
+    label: string,
+    own: number,
+    slot: number,
+    statIndex: number,
+  ) => {
+    const card = def.cards.find((c) => c.id === def.lineup[slot])!,
+      read = scoutRead(game, viewer, card.id, statIndex);
+    const assessment =
+      read.observations === 0
+        ? "Unscouted"
+        : own > read.max
+          ? "Advantage"
+          : own < read.min
+            ? "Disadvantage"
+            : read.observations === 3
+              ? "Even"
+              : "Uncertain";
+    return {
+      label,
+      assessment,
+      detail: `Your ${own.toFixed(1)} vs ${card.name}: ${describeRead(read)} · ${read.observations}/3 observed`,
+      observations: read.observations,
+    };
+  };
   return run
     ? [
-        { label: "OL blocking vs DL", edge: stat(off, 3, 4) - stat(def, 4, 8) },
-        {
-          label: `${play === "QB Keep" ? "QB" : "RB"} rushing vs LB`,
-          edge: stat(off, play === "QB Keep" ? 0 : 1, 1) - stat(def, 5, 6),
-        },
+        pair("OL blocking vs DL", stat(off, 3, 4), 4, 8),
+        pair(
+          `${play === "QB Keep" ? "QB" : "RB"} rushing vs LB`,
+          stat(off, play === "QB Keep" ? 0 : 1, 1),
+          5,
+          6,
+        ),
       ]
     : [
-        {
-          label: "OL protection vs DL",
-          edge: stat(off, 3, 3) - stat(def, 4, 7),
-        },
-        {
-          label: `QB + ${screen ? "RB" : "WR"} vs CB`,
-          edge:
-            0.55 * stat(off, 0, 0) +
-            0.45 * stat(off, screen ? 1 : 2, 2) -
-            stat(def, 6, 5),
-        },
+        pair("OL protection vs DL", stat(off, 3, 3), 4, 7),
+        pair(
+          `QB + ${screen ? "RB" : "WR"} vs CB`,
+          0.55 * stat(off, 0, 0) + 0.45 * stat(off, screen ? 1 : 2, 2),
+          6,
+          5,
+        ),
       ];
 }
 export function tendencies(

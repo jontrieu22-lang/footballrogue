@@ -39,6 +39,9 @@ Every snap now plays a short on-field card animation before the result. Cards sh
 
 ## Reading your opponent
 
-The scouting panel counts the opponent's last five revealed calls on the relevant side of the ball. It never displays the current hidden call. Offensive play cards show OL-vs-DL and runner/receiver matchup edges from visible stats before formation and safety effects. These are matchup comparisons, not win probabilities.
+The scouting panel counts the opponent's last five revealed calls on the relevant side of the ball. It never displays the current hidden call. Offensive play cards show OL-vs-DL and runner/receiver matchup edges from your ratings and scouted opponent bounds before formation and safety effects. These are matchup comparisons, not win probabilities.
 
 Upgrade offers recommend a role using weighted role fit. Select an offer to compare its relevant stat gains and losses against all eight starters before replacing anyone. CPU calls respond gradually to recent revealed runs, deep passes, blitzes, and coverage calls while retaining variety.
+
+## Gradual scouting
+Opponent names and positions are visible, but ratings start unknown. Each involved stat progresses through a lower bound, a bounded range, and its exact rating on the third observation. Sacks reveal only blocking/rush involvement; field goals reveal no athlete stats. Knowledge follows card identity across position changes and rounds; incoming cards start unknown. Matchup reads stay uncertain when bounds overlap. Result text and animations do not expose hidden ratings or derived probabilities. CPU defensive choices use the same knowledge bounds, while CPU offense uses its own team ratings and revealed call history. This is game information hiding, not protection against inspecting local browser memory.

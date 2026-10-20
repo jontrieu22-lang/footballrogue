@@ -54,7 +54,14 @@ export interface Result {
   turnover: boolean;
   text: string;
 }
+export interface ScoutRead {
+  observations: number;
+  min: number;
+  max: number;
+}
+export type ScoutBook = Record<string, Record<number, ScoutRead>>;
 export interface Game {
+  scouting: [ScoutBook, ScoutBook];
   calls: { offense: number; play: Play; defense: Defense }[];
   teams: [Team, Team];
   scores: [number, number];
@@ -150,6 +157,7 @@ export function newGame(teams: [Team, Team]): Game {
   return {
     teams: teams.map(lockTeam) as [Team, Team],
     calls: [],
+    scouting: [{}, {}],
     scores: [0, 0],
     round: 1,
     possession: 0,
@@ -232,7 +240,7 @@ export function resolvePlay(
       kind: "run",
       yards: gains[band]!,
       turnover: false,
-      text: `${play} vs ${defense}: blocking ${block.toFixed(1)} / resistance ${resistance.toFixed(1)}; runner ${o(carrier, 1)} / tackling ${tackle.toFixed(1)}.`,
+      text: `${play} vs ${defense}: ${play === "QB Keep" ? "QB" : "RB"} follows the OL against the defensive front.`,
     };
   }
   const screen = play === "Screen",
@@ -251,7 +259,7 @@ export function resolvePlay(
       kind: "sack",
       yards: long ? -7 : -4,
       turnover: false,
-      text: `Sack! ${defense} pressure (${pressure.toFixed(1)}) beat protection (${protection.toFixed(1)}).`,
+      text: `Sack! ${defense} pressure gets to the quarterback before the throw.`,
     };
   const quality = 0.55 * o(0, 0) + 0.45 * o(screen ? 1 : 2, 2);
   const coverageHelp = deep ? 0.45 : box ? 0 : 0.2;
@@ -272,14 +280,14 @@ export function resolvePlay(
       yards: 0,
       turnover: true,
       kind: "interception",
-      text: `Intercepted! ${play} met ${defense}. Passing ${quality.toFixed(1)} / coverage ${coverage.toFixed(1)}.`,
+      text: `Intercepted! ${play} met ${defense}; coverage takes the ball.`,
     };
   if (outcome >= interception + completion)
     return {
       yards: 0,
       turnover: false,
       kind: "incomplete",
-      text: `Incomplete. ${play}: ${Math.round(completion * 100)}% completion chance after the matchup.`,
+      text: `Incomplete. ${play} against ${defense}; the pass falls incomplete.`,
     };
   const after = o(screen ? 1 : 2, 2) - tackle + roll();
   const yards = long
@@ -291,7 +299,7 @@ export function resolvePlay(
     yards,
     turnover: false,
     kind: "completion",
-    text: `Complete! Passing ${quality.toFixed(1)} / coverage ${coverage.toFixed(1)}. ${screen ? "RB" : "WR"} gains ${yards} yards.`,
+    text: `Complete! ${play} against ${defense}. ${screen ? "RB" : "WR"} gains ${yards} yards.`,
   };
 }
 function finishPossession(g: Game): Game {

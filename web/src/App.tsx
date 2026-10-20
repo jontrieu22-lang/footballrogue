@@ -1,3 +1,4 @@
+import { finishScoutedPlay, scoutRead, describeRead } from "../../src/scouting";
 import { matchups, tendencies, upgradeOptions } from "../../src/insights";
 import PlayAnimation, { type Replay } from "./PlayAnimation";
 import { useCallback, useState } from "react";
@@ -18,7 +19,6 @@ import {
   lockTeam,
   newGame,
   resolvePlay,
-  applyResult,
   kick,
   kickChance,
   nextRound,
@@ -147,10 +147,7 @@ export default function App() {
     );
     setReplay({
       before,
-      after: {
-        ...applyResult(before, result),
-        calls: [...before.calls, { offense: before.offense, play, defense }],
-      },
+      after: finishScoutedPlay(before, result, play, defense),
       play,
       defense,
       result,
@@ -517,8 +514,8 @@ export default function App() {
           </div>
           {phase === "offense" && (
             <p className="muted">
-              Matchup reads compare visible card stats before formation bonuses,
-              safety help, or execution rolls. They are not success
+              Matchup reads use only scouted opponent stats before formation
+              bonuses, safety help, or execution rolls. They are not success
               probabilities.
             </p>
           )}
@@ -546,25 +543,21 @@ export default function App() {
                         game.teams[game.offense]!,
                         game.teams[1 - game.offense]!,
                         p,
+                        game,
+                        player,
                       ).map((m) => (
                         <span key={m.label}>
                           {m.label}
                           <b
                             className={
-                              m.edge >= 1
+                              m.assessment === "Advantage"
                                 ? "positive"
-                                : m.edge <= -1
+                                : m.assessment === "Disadvantage"
                                   ? "negative"
                                   : ""
                             }
                           >
-                            {m.edge >= 1
-                              ? "Advantage"
-                              : m.edge <= -1
-                                ? "Disadvantage"
-                                : "Even"}{" "}
-                            ({m.edge > 0 ? "+" : ""}
-                            {m.edge.toFixed(1)})
+                            {m.assessment} · {m.detail}
                           </b>
                         </span>
                       ))}
@@ -597,7 +590,12 @@ export default function App() {
             </button>
           )}
           <details>
-            <summary>Scout both rosters</summary>
+            <summary>Your roster & opponent scouting</summary>
+            <p className="muted">
+              Opponent stats reveal through involvement: unknown → minimum →
+              range → exact after three observations. New cards start unknown;
+              retained cards keep their scouting.
+            </p>
             <div className="scouting">
               {game.teams.map((t, i) => (
                 <section key={i}>
@@ -610,9 +608,10 @@ export default function App() {
                           {s} · {c.name}
                         </b>
                         <small>
-                          {STATS.map((stat, k) => `${stat} ${c.stats[k]}`).join(
-                            " · ",
-                          )}
+                          {STATS.map(
+                            (stat, k) =>
+                              `${stat} ${i === player ? c.stats[k] : describeRead(scoutRead(game, player, c.id, k))}`,
+                          ).join(" · ")}
                         </small>
                       </p>
                     );

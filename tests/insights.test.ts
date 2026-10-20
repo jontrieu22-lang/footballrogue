@@ -1,6 +1,6 @@
 import { it, expect } from "vitest";
 import { buildCpuTeam } from "../src/cpu";
-import { deal } from "../src/game";
+import { deal, newGame } from "../src/game";
 import {
   tendencies,
   matchups,
@@ -18,11 +18,15 @@ it("shows only the relevant opponent’s last five revealed calls", () => {
   expect(report.counts).toEqual([{ name: "Balanced", count: 5 }]);
   expect(tendencies([], 1, "offense").total).toBe(0);
 });
-it("compares OL directly to DL without needing hidden selections", () => {
-  const t = buildCpuTeam(deal(10, "a"));
-  const reads = matchups(t, t, "Inside Run");
-  const card = (i: number) => t.cards.find((c) => c.id === t.lineup[i])!;
-  expect(reads[0]!.edge).toBe(card(3).stats[4]! - card(4).stats[8]!);
+it("starts matchup reads unscouted without reading opponent ratings", () => {
+  const a = buildCpuTeam(deal(10, "a")),
+    b = buildCpuTeam(deal(10, "b"));
+  const g = newGame([a, b]);
+  expect(
+    matchups(a, b, "Inside Run", g, 0).every(
+      (r) => r.assessment === "Unscouted",
+    ),
+  ).toBe(true);
 });
 it("shows positive and negative replacement deltas for every slot", () => {
   const t = buildCpuTeam(deal(10, "a"));

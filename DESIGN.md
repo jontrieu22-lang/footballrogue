@@ -4,7 +4,7 @@
 A fresh replacement for the old franchise simulator. Play solo against a CPU or with two humans on one shared device. Online rooms, persistence, progression currencies, seasons, injuries, and contracts are outside this version.
 
 ## Cards and roster
-Each player receives 10 generated cards. Every card has all nine stats, each 1–10, totaling 45 points: passing, rushing, catching, pass blocking, run blocking, coverage, tackling, pass rushing, run defense. Assign eight unique cards to QB, RB, WR, OL, DL, LB, CB, Safety. Discard the other two. Every card can fill any slot. Locked rosters are public; opening hands and upgrade offers are private behind handoff screens.
+Each player receives 10 generated cards. Every card has all nine stats, each 1–10, totaling 45 points: passing, rushing, catching, pass blocking, run blocking, coverage, tackling, pass rushing, run defense. Assign eight unique cards to QB, RB, WR, OL, DL, LB, CB, Safety. Discard the other two. Every card can fill any slot. Locked names and positions are public; opposing stats are gradually scouted; opening hands and upgrade offers are private behind handoff screens.
 
 ## Match
 College-overtime-inspired rounds start each possession at the opponent’s 45-yard line (a 62-yard field goal, 35% chance before gaining ground). Four downs to gain ten yards; seven-point touchdowns, no extra-point roll. Interceptions and failed fourth downs end the possession. Safeties award two points to defense. No return touchdowns, punts, fumbles, or fake kicks yet. Both teams get one possession per round, alternating which player starts each round. Check victory only after the pair: at least 21 points and a lead wins. After round eight, a lead wins regardless of target; ties continue from the opposing 20 with equal possessions. This cap is provisional for playtesting.
@@ -19,7 +19,7 @@ Runs use 60% OL run-blocking vs DL run-defense edge plus 40% carrier rushing vs 
 
 Passes check OL pass blocking against DL pass rush; Blitz uses 65% DL + 35% LB pass rush plus 1.5. Then compare 55% QB passing + 45% target catching against CB coverage, with safety help (20% normally, 45% in Pass Coverage, none in Run Stop). Screens target RB; other passes target WR. Deep coverage improves deep-pass resistance at the cost of run support. Blitz exposes screens. Tackling limits gains after the catch. No carrier or receiver also supplies blocking in the same calculation.
 
-The engine reports the relevant matchup or odds with every result. No team-overall shortcut. All weights and odds are provisional and need human balance testing.
+The engine reports outcomes without exposing hidden ratings or derived passing odds. Matchup reads use scouted bounds. No team-overall shortcut. All weights and odds are provisional and need human balance testing.
 
 ## Upgrades
 After each unfinished round, independently deal three cards to each player. Choose up to one to replace a starter or skip. Offers have the same 45-point budget as opening cards. No bench; replaced and unchosen cards are discarded. Rearrange existing cards freely. Both teams lock before the next snap.
