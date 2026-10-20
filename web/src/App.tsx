@@ -298,7 +298,7 @@ export default function App() {
             + 17. A safety scores 2 for defense.
           </p>
           <p>
-            Each round gives both players one possession. First to 21 wins only
+            Each round gives both players one possession from the opponent’s 45-yard line. First to 21 wins only
             after equal possessions, and only with a lead. Between rounds, each
             gets three cards and can swap in one, or keep their team. Rosters
             are public after locking. After eight rounds, a leader wins; ties

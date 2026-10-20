@@ -21,6 +21,8 @@ export const SLOTS = [
 ] as const;
 export const ROSTER_SIZE = SLOTS.length;
 export const HAND_SIZE = ROSTER_SIZE + 2;
+// Field coordinates count from the offense’s own goal line.
+export const POSSESSION_START = 55; // Opponent’s 45: a 62-yard kick.
 export const PLAYS = [
   "Inside Run",
   "Outside Run",
@@ -150,7 +152,7 @@ export function newGame(teams: [Team, Team]): Game {
     round: 1,
     possession: 0,
     offense: 0,
-    yard: 50,
+    yard: POSSESSION_START,
     down: 1,
     toGo: 10,
     winner: null,
@@ -296,7 +298,7 @@ function finishPossession(g: Game): Game {
       ...g,
       possession: 1,
       offense: 1 - g.offense,
-      yard: g.round > 8 ? 80 : 50,
+      yard: g.round > 8 ? 80 : POSSESSION_START,
       down: 1,
       toGo: 10,
     };
@@ -363,7 +365,7 @@ export function nextRound(game: Game, teams: [Team, Team]): Game {
     round,
     possession: 0,
     offense: (round - 1) % 2,
-    yard: round > 8 ? 80 : 50,
+    yard: round > 8 ? 80 : POSSESSION_START,
     down: 1,
     toGo: 10,
     upgrade: false,

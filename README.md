@@ -16,7 +16,7 @@ Open the local URL and choose **Play against CPU** for solo play, or **Two playe
 1. Each player receives 10 universal athlete cards with nine stats. Assign four offense and four defense; discard two.
 2. Offense secretly chooses one of six plays. Hand the device over for defense to choose one of four formations. Reveal and resolve.
 3. Four downs to gain ten yards. Touchdowns score seven; fourth-down field goals score three with distance-based odds.
-4. Both players receive one possession per round. First to 21 wins only after equal possessions, with a lead.
+4. Both players receive one possession per round, starting at the opponent’s 45-yard line (college-overtime-inspired). First to 21 wins only after equal possessions, with a lead.
 5. Between rounds, each player receives three new cards and may replace one starter. Rearrange positions freely, then lock the roster.
 6. First possession alternates. After eight rounds, a leader wins; ties continue with paired possessions from the opponent's 20.
 
