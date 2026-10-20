@@ -1,7 +1,7 @@
 # Football Rogue — card tactics
 
 ## Scope
-A fresh replacement for the old franchise simulator. Two humans play locally on one shared device. Online rooms, persistence, AI opponents, progression currencies, seasons, injuries, and contracts are outside this version.
+A fresh replacement for the old franchise simulator. Play solo against a CPU or with two humans on one shared device. Online rooms, persistence, progression currencies, seasons, injuries, and contracts are outside this version.
 
 ## Cards and roster
 Each player receives 12 generated cards. Every card has all nine stats, each 1–10, totaling 45 points: passing, rushing, catching, pass blocking, run blocking, coverage, tackling, pass rushing, run defense. Assign ten unique cards to QB, RB, WR, Flex, OL, CB, LB, DL, Safety, Wildcard. Discard the other two. Every card can fill any slot. Locked rosters are public; opening hands and upgrade offers are private behind handoff screens.
@@ -26,3 +26,6 @@ After each unfinished round, independently deal three cards to each player. Choo
 
 ## Future online boundary
 Local handoffs are privacy UX, not a security boundary: browser memory contains both hands. Online multiplayer will require server-owned hands, randomness and match state, authenticated seats, private action submissions, and reconnect support. Do not expose this client state as a competitive online protocol.
+
+## CPU mode
+The CPU uses exact assignment optimization to build its ten-card roster from twelve cards, prioritizing role-specific stats. Between rounds it evaluates the existing team and each offered card separately, so it can acquire at most one. Calls are varied with weighted randomness based on public roster strengths and down/distance. The CPU commits its call before the human chooses, never inspecting the human’s hidden choice. Fourth-down kicking uses the same odds as human play. Solo mode has no handoff screens; the human controls both their offense and defense.

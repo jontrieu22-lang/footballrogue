@@ -1,5 +1,11 @@
 import { useState } from "react";
 import {
+  buildCpuTeam,
+  upgradeCpu,
+  cpuOffense,
+  cpuDefense,
+} from "../../src/cpu";
+import {
   STATS,
   SLOTS,
   PLAYS,
@@ -17,6 +23,7 @@ import {
   type Team,
   type Game,
   type Play,
+  type Defense,
 } from "../../src/game";
 type Phase =
   | "welcome"
@@ -43,6 +50,8 @@ const defenseNotes = [
   "Protect against deep throws. Gives up room underneath.",
 ];
 export default function App() {
+  const [solo, setSolo] = useState(true);
+  const [cpuCall, setCpuCall] = useState<Defense>("Balanced");
   const [phase, setPhase] = useState<Phase>("welcome"),
     [destination, setDestination] = useState<Phase>("build");
   const [player, setPlayer] = useState(0),
@@ -60,13 +69,20 @@ export default function App() {
     setSelected(null);
     setPhase("handoff");
   };
-  const start = () => {
+  const start = (single = solo) => {
+    setSolo(single);
+    setPending(null);
+    setSelected(null);
+    setPlayer(0);
     setTeams([
       { cards: deal(12, "a"), lineup: Array(10).fill("") },
-      { cards: deal(12, "b"), lineup: Array(10).fill("") },
+      single
+        ? buildCpuTeam(deal(12, "b"))
+        : { cards: deal(12, "b"), lineup: Array(10).fill("") },
     ]);
     setGame(null);
-    handoff(0, "build");
+    if (single) setPhase("build");
+    else handoff(0, "build");
   };
   const assign = (slot: number) => {
     if (!selected) return;
@@ -88,11 +104,30 @@ export default function App() {
     const updated = [...teams] as [Team, Team];
     updated[player] = lockTeam(updated[player]!);
     setTeams(updated);
-    if (player === 0) handoff(1, "build");
+    if (player === 0 && !solo) handoff(1, "build");
     else {
       const g = newGame(updated);
       setGame(g);
+      prepareTurn(g);
+    }
+  };
+  const prepareTurn = (g: Game) => {
+    setSelected(null);
+    if (!solo) {
       handoff(g.offense, "offense");
+      return;
+    }
+    setPlayer(0);
+    if (g.offense === 0) {
+      setCpuCall(cpuDefense(g));
+      setPhase("offense");
+    } else {
+      const call = cpuOffense(g);
+      if (call === "kick") showResult(kick(g));
+      else {
+        setPending(call);
+        setPhase("defense");
+      }
     }
   };
   const showResult = (g: Game) => {
@@ -109,17 +144,25 @@ export default function App() {
       setOffers([deal(3, `a-r${game.round}`), deal(3, `b-r${game.round}`)]);
       setTeams(game.teams);
       setSwapped(false);
-      handoff(0, "upgrade");
-    } else handoff(game.offense, "offense");
+      if (solo) {
+        setPlayer(0);
+        setSelected(null);
+        setPhase("upgrade");
+      } else handoff(0, "upgrade");
+    } else prepareTurn(game);
   };
   const upgradeDone = () => {
-    if (player === 0) {
+    if (player === 0 && !solo) {
       setSwapped(false);
       handoff(1, "upgrade");
     } else {
-      const g = nextRound(game!, teams);
+      const updated: [Team, Team] = solo
+        ? [teams[0], upgradeCpu(teams[1], offers[1])]
+        : teams;
+      setTeams(updated);
+      const g = nextRound(game!, updated);
       setGame(g);
-      handoff(g.offense, "offense");
+      prepareTurn(g);
     }
   };
   const card = (c: Card, offer = false) => (
@@ -211,10 +254,10 @@ export default function App() {
           </button>
           <h2>A football game of hands and reads.</h2>
           <p>
-            Two people share this device. Deal 12 universal athletes, assign 5
-            on offense and 5 on defense. The two unassigned cards are discarded.
-            Select a card, then a slot; selecting an assigned card lets you swap
-            positions.
+            Play solo against the CPU, or share this device with a second
+            person. Deal 12 universal athletes, assign 5 on offense and 5 on
+            defense. The two unassigned cards are discarded. Select a card, then
+            a slot; selecting an assigned card lets you swap positions.
           </p>
           <p>
             Each snap: offense locks a secret play, hands the device to defense,
@@ -246,13 +289,13 @@ export default function App() {
             <small>FIRST TO 21 · EQUAL POSSESSIONS</small>
           </span>
           <div className={game.offense === 1 ? "active" : ""}>
-            <strong>{game.scores[1]}</strong> PLAYER 02
+            <strong>{game.scores[1]}</strong> {solo ? "CPU" : "PLAYER 02"}
           </div>
         </div>
       )}
       {phase === "welcome" && (
         <section className="hero">
-          <p className="eyebrow">TWO PLAYERS. TWELVE CARDS. YOUR CALL.</p>
+          <p className="eyebrow">YOUR TEAM. TWELVE CARDS. YOUR CALL.</p>
           <h1>
             Build your hand.
             <br />
@@ -262,9 +305,14 @@ export default function App() {
             Turn a handful of athletes into a winning team. Call the play,
             outthink the defense, and rebuild between rounds.
           </p>
-          <button className="primary" onClick={start}>
-            Deal a new match <span>↗</span>
-          </button>
+          <div className="mode-buttons">
+            <button className="primary" onClick={() => start(true)}>
+              Play against CPU <span>↗</span>
+            </button>
+            <button className="quiet" onClick={() => start(false)}>
+              Two players · pass & play
+            </button>
+          </div>
           <div className="features">
             <span>01 / BUILD A TEAM</span>
             <span>02 / CALL YOUR SHOT</span>
@@ -280,7 +328,7 @@ export default function App() {
             <span>10</span>
           </div>
           <p className="muted">
-            Local two-player · Pass the device · No account needed
+            Solo vs CPU or local two-player · No account needed
           </p>
         </section>
       )}
@@ -352,6 +400,13 @@ export default function App() {
               </small>
             </div>
           </div>
+          {solo && (
+            <p className="cpu-status">
+              {phase === "offense"
+                ? "CPU defense is locked in. Choose your play."
+                : "CPU offense is locked in. Choose your defense."}
+            </p>
+          )}
           <div className="field">
             <div className="ball" style={{ left: `${game.yard}%` }}>
               ◆
@@ -371,8 +426,22 @@ export default function App() {
                     className="play"
                     key={p}
                     onClick={() => {
-                      setPending(p);
-                      handoff(1 - game.offense, "defense");
+                      if (solo)
+                        showResult(
+                          applyResult(
+                            game,
+                            resolvePlay(
+                              game.teams[0],
+                              game.teams[1],
+                              p,
+                              cpuCall,
+                            ),
+                          ),
+                        );
+                      else {
+                        setPending(p);
+                        handoff(1 - game.offense, "defense");
+                      }
                     }}
                   >
                     <span>
@@ -424,7 +493,7 @@ export default function App() {
             <div className="scouting">
               {game.teams.map((t, i) => (
                 <section key={i}>
-                  <h3>PLAYER {i + 1}</h3>
+                  <h3>{solo && i === 1 ? "CPU" : `PLAYER ${i + 1}`}</h3>
                   {SLOTS.map((s, j) => {
                     const c = t.cards.find((c) => c.id === t.lineup[j])!;
                     return (
@@ -453,7 +522,11 @@ export default function App() {
           </p>
           <h1>
             {game.winner !== null
-              ? `Player ${game.winner + 1} wins.`
+              ? solo
+                ? game.winner === 0
+                  ? "You win."
+                  : "CPU wins."
+                : `Player ${game.winner + 1} wins.`
               : game.upgrade
                 ? "Round complete."
                 : "Play resolved."}
@@ -464,7 +537,7 @@ export default function App() {
             </p>
           ))}
           {game.winner !== null ? (
-            <button className="primary" onClick={start}>
+            <button className="primary" onClick={() => start()}>
               Deal a rematch ↗
             </button>
           ) : (

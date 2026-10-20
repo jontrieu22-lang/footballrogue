@@ -578,3 +578,5 @@ footer {
     height: 130px;
   }
 }
+.mode-buttons { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.cpu-status { color: #dafa73; font-size: 13px; }

@@ -1,6 +1,6 @@
 # Football Rogue
 
-A two-player, turn-based football card game. Build a team from a dealt hand, call hidden plays, and improve your lineup between rounds.
+A single-player or two-player, turn-based football card game. Build a team from a dealt hand, call hidden plays, and improve your lineup between rounds.
 
 This replaces the former franchise simulator. The old game remains in Git history, not as another mode.
 
@@ -11,7 +11,7 @@ npm ci
 npm run ui
 ```
 
-Open the local URL and share the device with a second player. Handoff screens hide cards and calls from casual viewing. This release is **local pass-and-play**, not online multiplayer. Refreshing starts a new session; there is no autosave yet.
+Open the local URL and choose **Play against CPU** for solo play, or **Two players · pass & play** to share the device. The CPU drafts its own roster, commits its calls before yours, and automatically chooses up to one upgrade each round. Handoff screens hide cards and calls from casual viewing. This release is **solo vs CPU and local pass-and-play**, not online multiplayer. Refreshing starts a new session; there is no autosave yet.
 
 1. Each player receives 12 universal athlete cards with nine stats. Assign five offense and five defense; discard two.
 2. Offense secretly chooses one of six plays. Hand the device over for defense to choose one of five formations. Reveal and resolve.
