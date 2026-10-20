@@ -67,13 +67,13 @@ describe("paired possessions and scoring", () => {
   });
   it("converts first downs and turns over after four failures", () => {
     let g = applyResult(game(), { yards: 6, turnover: false, text: "run" });
-    expect([g.yard, g.down, g.toGo]).toEqual([61, 2, 4]);
+    expect([g.yard, g.down, g.toGo]).toEqual([66, 2, 4]);
     g = applyResult(g, { yards: 4, turnover: false, text: "run" });
-    expect([g.yard, g.down, g.toGo]).toEqual([65, 1, 10]);
+    expect([g.yard, g.down, g.toGo]).toEqual([70, 1, 10]);
     for (let i = 0; i < 4; i++)
       g = applyResult(g, { yards: 0, turnover: false, text: "incomplete" });
     expect(g.offense).toBe(1);
-    expect(g.yard).toBe(55);
+    expect(g.yard).toBe(60);
   });
   it("sets goal-to-go and handles negative gains", () => {
     let g = { ...game(), yard: 95, toGo: 5 };
@@ -205,4 +205,13 @@ it("uses the RB for outside runs and screens in the eight-player game", () => {
   expect(screen.text).toContain("RB gains");
 });
 
-it("starts both possessions and new rounds on the opposing 45",()=>{let g=game();expect(g.yard).toBe(55);expect(kickChance(117-g.yard)).toBeCloseTo(.35);g=applyResult(g,stop);expect(g.yard).toBe(55);g=applyResult(g,stop);g=nextRound(g,g.teams);expect(g.yard).toBe(55);});
+it("starts both possessions and new rounds on the opposing 40", () => {
+  let g = game();
+  expect(g.yard).toBe(60);
+  expect(kickChance(117 - g.yard)).toBeCloseTo(0.57);
+  g = applyResult(g, stop);
+  expect(g.yard).toBe(60);
+  g = applyResult(g, stop);
+  g = nextRound(g, g.teams);
+  expect(g.yard).toBe(60);
+});

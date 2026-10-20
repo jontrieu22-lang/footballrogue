@@ -70,7 +70,13 @@ export default function PlayAnimation({
   const touchdown =
     !isKick && !intercept && before.yard + (result?.yards ?? 0) >= 100;
   const carrier = run ? (play === "QB Keep" ? 0 : 1) : screen ? 1 : 2;
-  const x = clamp(40 + (result?.yards ?? 0) * 1.65, 22, 85),
+  const viewStart = Math.max(0, Math.min(50, before.yard - 15));
+  const yardX = (yard: number) =>
+    4 + ((yard - viewStart) / (100 - viewStart)) * 85;
+  const projectX = (x: number) =>
+    clamp(yardX(before.yard + (x - 40) / 1.65), 3, 96);
+  const goalX = 40 + (100 - before.yard) * 1.65;
+  const x = 40 + (result?.yards ?? 0) * 1.65,
     y = play === "Outside Run" ? 82 : screen ? 72 : run ? 52 : 22;
   const target: Point = [x, y];
   const attack: Point[] = offenseStart.map((p) => [...p]);
@@ -101,7 +107,7 @@ export default function PlayAnimation({
       defenders[2] = [x, 22];
       if (stage === 3) defenders[2] = [x - 8, 35];
     }
-    if (touchdown && stage >= 2) attack[carrier] = [90, y];
+    if (touchdown && stage >= 2) attack[carrier] = [goalX + 3, y];
   }
   let ball: Point =
     stage === 0
@@ -115,7 +121,7 @@ export default function PlayAnimation({
   if (intercept && stage >= 2) ball = defenders[2]!;
   if (touchdown && stage >= 2) ball = attack[carrier]!;
   const made = after.scores[before.offense]! > before.scores[before.offense]!;
-  if (isKick) ball = stage < 2 ? [30, 52] : [90, made ? 50 : 20];
+  if (isKick) ball = stage < 2 ? [30, 52] : [goalX + 6, made ? 50 : 20];
   const label = isKick
     ? made
       ? "FIELD GOAL GOOD"
@@ -130,7 +136,7 @@ export default function PlayAnimation({
             ? "INCOMPLETE"
             : `${(result?.yards ?? 0) >= 0 ? "+" : ""}${result?.yards ?? 0} YARDS`;
   const style = (point: Point): CSSProperties => ({
-    left: `${point[0]}%`,
+    left: `${projectX(point[0])}%`,
     top: `${point[1]}%`,
   });
   return (
@@ -159,27 +165,43 @@ export default function PlayAnimation({
       </div>
       <div className="replay-field" aria-hidden="true">
         <div className="replay-endzone">END ZONE</div>
-        <div className="scrimmage-line" />
+        <div
+          className="scrimmage-line"
+          style={{ left: `${yardX(before.yard)}%` }}
+        />
         <div
           className="replay-gain-line"
-          style={{ left: `${clamp(40 + before.toGo * 1.65, 40, 86)}%` }}
+          style={{
+            left: `${yardX(Math.min(100, before.yard + before.toGo))}%`,
+          }}
         />
-        {[10, 20, 30, 40, 50].map((n, i) => (
-          <span
-            className="field-number"
-            key={n}
-            style={{ left: `${13 + i * 16}%` }}
-          >
-            {n}
-          </span>
-        ))}
+        {Array.from({ length: 100 }, (_, yard) => yard)
+          .filter((yard) => yard >= viewStart)
+          .map((yard) => (
+            <div
+              key={yard}
+              className={yard % 10 === 0 ? "yard-line" : "yard-hash"}
+              style={{ left: `${yardX(yard)}%` }}
+            >
+              {yard % 10 === 0 && (
+                <>
+                  <span className="yard-label top">
+                    {Math.min(yard, 100 - yard)}
+                  </span>
+                  <span className="yard-label bottom">
+                    {Math.min(yard, 100 - yard)}
+                  </span>
+                </>
+              )}
+            </div>
+          ))}
         <svg
           className="route-lines"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
           <path
-            d={`M ${offenseStart[carrier]![0]} ${offenseStart[carrier]![1]} Q 42 ${y} ${touchdown ? 90 : x} ${y}`}
+            d={`M ${projectX(offenseStart[carrier]![0])} ${offenseStart[carrier]![1]} Q ${projectX(42)} ${y} ${projectX(touchdown ? goalX : x)} ${y}`}
           />
         </svg>
         {before.teams.map((team, side) =>
@@ -230,8 +252,8 @@ export default function PlayAnimation({
               : label}
       </div>
       <p className="muted">
-        Play illustration · movement follows the resolved outcome; field spacing
-        is schematic.
+        Yard numbers count down to the goal line · blue: scrimmage · yellow:
+        first down.
       </p>
     </section>
   );

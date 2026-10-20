@@ -22,7 +22,7 @@ export const SLOTS = [
 export const ROSTER_SIZE = SLOTS.length;
 export const HAND_SIZE = ROSTER_SIZE + 2;
 // Field coordinates count from the offense’s own goal line.
-export const POSSESSION_START = 55; // Opponent’s 45: a 62-yard kick.
+export const POSSESSION_START = 60; // Opponent’s 40: a 57-yard kick.
 export const PLAYS = [
   "Inside Run",
   "Outside Run",

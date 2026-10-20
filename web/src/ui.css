@@ -1473,3 +1473,53 @@ summary {
 .live-field {
   scroll-margin-top: 12px;
 }
+
+.replay-field {
+  background: repeating-linear-gradient(
+    0deg,
+    #248647 0 40px,
+    #20773e 40px 80px
+  );
+}
+.yard-line,
+.yard-hash {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+.yard-line {
+  border-left: 2px solid #ecf6daaa;
+}
+.yard-label {
+  position: absolute;
+  color: #ecf6da;
+  font: 13px var(--arcade);
+  transform: translateX(-50%);
+  background: #20773e;
+  padding: 3px;
+}
+.yard-label.top {
+  top: 12px;
+}
+.yard-label.bottom {
+  bottom: 12px;
+}
+.yard-hash::before,
+.yard-hash::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  width: 4px;
+  background: #ecf6da99;
+}
+.yard-hash::before {
+  top: 40%;
+}
+.yard-hash::after {
+  top: 60%;
+}
+.scrimmage-line,
+.replay-gain-line {
+  z-index: 2;
+}

@@ -407,7 +407,7 @@ export default function App() {
           </p>
           <p>
             Each round gives both players one possession from the opponent’s
-            45-yard line. First to 21 wins only after equal possessions, and
+            40-yard line. First to 21 wins only after equal possessions, and
             only with a lead. Between rounds, each gets three cards and can swap
             in one, or keep their team. Rosters are public after locking. After
             eight rounds, a leader wins; ties continue from the opponent’s 20.
