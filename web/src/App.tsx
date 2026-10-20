@@ -1,4 +1,5 @@
-import { useState } from "react";
+import PlayAnimation, { type Replay } from "./PlayAnimation";
+import { useCallback, useState } from "react";
 import {
   buildCpuTeam,
   upgradeCpu,
@@ -28,6 +29,7 @@ import {
   type Defense,
 } from "../../src/game";
 type Phase =
+  | "animation"
   | "welcome"
   | "handoff"
   | "build"
@@ -54,6 +56,7 @@ const defenseNotes = [
   "Safety helps CB against deep passes. LB handles runs alone.",
 ];
 export default function App() {
+  const [replay, setReplay] = useState<Replay | null>(null);
   const [solo, setSolo] = useState(true);
   const [cpuCall, setCpuCall] = useState<Defense>("Balanced");
   const [phase, setPhase] = useState<Phase>("welcome"),
@@ -127,21 +130,46 @@ export default function App() {
       setPhase("offense");
     } else {
       const call = cpuOffense(g);
-      if (call === "kick") showResult(kick(g));
+      if (call === "kick") animateKick(g);
       else {
         setPending(call);
         setPhase("defense");
       }
     }
   };
-  const showResult = (g: Game) => {
-    setResultLines(
-      g.log.slice(0, Math.max(1, g.log.length - (game?.log.length ?? 0))),
+  const animateSnap = (before: Game, play: Play, defense: Defense) => {
+    const result = resolvePlay(
+      before.teams[before.offense]!,
+      before.teams[1 - before.offense]!,
+      play,
+      defense,
     );
-    setGame(g);
-    setPending(null);
-    setPhase("result");
+    setReplay({
+      before,
+      after: applyResult(before, result),
+      play,
+      defense,
+      result,
+    });
+    setPhase("animation");
   };
+  const animateKick = (before: Game) => {
+    setReplay({ before, after: kick(before), play: "Field Goal" });
+    setPhase("animation");
+  };
+  const finishAnimation = useCallback(() => {
+    if (!replay) return;
+    setResultLines(
+      replay.after.log.slice(
+        0,
+        Math.max(1, replay.after.log.length - replay.before.log.length),
+      ),
+    );
+    setGame(replay.after);
+    setPending(null);
+    setReplay(null);
+    setPhase("result");
+  }, [replay]);
   const continueGame = () => {
     if (!game) return;
     if (game.upgrade) {
@@ -433,18 +461,7 @@ export default function App() {
                     className="play"
                     key={p}
                     onClick={() => {
-                      if (solo)
-                        showResult(
-                          applyResult(
-                            game,
-                            resolvePlay(
-                              game.teams[0],
-                              game.teams[1],
-                              p,
-                              cpuCall,
-                            ),
-                          ),
-                        );
+                      if (solo) animateSnap(game, p, cpuCall);
                       else {
                         setPending(p);
                         handoff(1 - game.offense, "defense");
@@ -463,19 +480,7 @@ export default function App() {
                   <button
                     className="play"
                     key={d}
-                    onClick={() =>
-                      showResult(
-                        applyResult(
-                          game,
-                          resolvePlay(
-                            game.teams[game.offense]!,
-                            game.teams[1 - game.offense]!,
-                            pending!,
-                            d,
-                          ),
-                        ),
-                      )
-                    }
+                    onClick={() => animateSnap(game, pending!, d)}
                   >
                     <span>0{i + 1} / DEFENSE</span>
                     <h2>{d}</h2>
@@ -488,7 +493,7 @@ export default function App() {
             <button
               className="kick"
               disabled={!kickChance(117 - game.yard)}
-              onClick={() => showResult(kick(game))}
+              onClick={() => animateKick(game)}
             >
               Attempt field goal · {117 - game.yard} yards ·{" "}
               {Math.round(kickChance(117 - game.yard) * 100)}% chance · +3
@@ -521,6 +526,9 @@ export default function App() {
             </div>
           </details>
         </>
+      )}
+      {phase === "animation" && replay && (
+        <PlayAnimation replay={replay} onComplete={finishAnimation} />
       )}
       {phase === "result" && game && (
         <section className="result">

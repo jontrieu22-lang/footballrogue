@@ -47,6 +47,7 @@ export interface Team {
   lineup: string[];
 }
 export interface Result {
+  kind?: "run" | "sack" | "interception" | "incomplete" | "completion";
   yards: number;
   turnover: boolean;
   text: string;
@@ -224,6 +225,7 @@ export function resolvePlay(
           ? [-4, 0, 3, 6, 11, 18]
           : [-3, 0, 3, 6, 9, 15];
     return {
+      kind: "run",
       yards: gains[band]!,
       turnover: false,
       text: `${play} vs ${defense}: blocking ${block.toFixed(1)} / resistance ${resistance.toFixed(1)}; runner ${o(carrier, 1)} / tackling ${tackle.toFixed(1)}.`,
@@ -242,6 +244,7 @@ export function resolvePlay(
   );
   if (rng() < sack)
     return {
+      kind: "sack",
       yards: long ? -7 : -4,
       turnover: false,
       text: `Sack! ${defense} pressure (${pressure.toFixed(1)}) beat protection (${protection.toFixed(1)}).`,
@@ -264,12 +267,14 @@ export function resolvePlay(
     return {
       yards: 0,
       turnover: true,
+      kind: "interception",
       text: `Intercepted! ${play} met ${defense}. Passing ${quality.toFixed(1)} / coverage ${coverage.toFixed(1)}.`,
     };
   if (outcome >= interception + completion)
     return {
       yards: 0,
       turnover: false,
+      kind: "incomplete",
       text: `Incomplete. ${play}: ${Math.round(completion * 100)}% completion chance after the matchup.`,
     };
   const after = o(screen ? 1 : 2, 2) - tackle + roll();
@@ -281,6 +286,7 @@ export function resolvePlay(
   return {
     yards,
     turnover: false,
+    kind: "completion",
     text: `Complete! Passing ${quality.toFixed(1)} / coverage ${coverage.toFixed(1)}. ${screen ? "RB" : "WR"} gains ${yards} yards.`,
   };
 }

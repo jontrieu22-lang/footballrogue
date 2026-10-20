@@ -588,3 +588,253 @@ footer {
   color: #dafa73;
   font-size: 13px;
 }
+.replay-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 28px 0 18px;
+}
+.replay-heading h1 {
+  font-size: 46px;
+  margin: 8px 0;
+}
+.replay-heading p {
+  margin: 5px 0;
+}
+.replay-field {
+  height: 470px;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #708766;
+  border-radius: 12px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(10% - 1px),
+      #c8df9b45 calc(10% - 1px),
+      #c8df9b45 10%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      #244b33 0,
+      #244b33 47px,
+      #294f38 47px,
+      #294f38 94px
+    );
+  box-shadow: inset 0 0 80px #08190c70;
+}
+.replay-endzone {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 11%;
+  background: #dafa731a;
+  writing-mode: vertical-rl;
+  text-align: center;
+  padding: 20px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  color: #dafa7370;
+  border-left: 2px solid #dafa73;
+}
+.scrimmage-line {
+  position: absolute;
+  left: 40%;
+  height: 100%;
+  border-left: 2px solid #85cbf5;
+}
+.replay-gain-line {
+  position: absolute;
+  height: 100%;
+  border-left: 2px dashed #ffc669;
+}
+.field-number {
+  position: absolute;
+  bottom: 12px;
+  font-size: 24px;
+  font-family: "Barlow Condensed", sans-serif;
+  color: #d8e7c76b;
+}
+.field-card {
+  position: absolute;
+  width: 78px;
+  padding: 9px 5px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  border: 2px solid;
+  border-radius: 7px;
+  box-shadow: 0 5px 10px #0005;
+  transition:
+    left 1s ease-in-out,
+    top 1s ease-in-out;
+  z-index: 3;
+}
+.field-card b {
+  font-size: 18px;
+  display: block;
+  font-family: "Barlow Condensed", sans-serif;
+}
+.field-card strong {
+  font-size: 11px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.field-card span {
+  font-size: 7px;
+  letter-spacing: 1px;
+}
+.attacker {
+  background: #e8efc8;
+  border-color: #dafa73;
+  color: #182b20;
+}
+.defender {
+  background: #663d36;
+  border-color: #e39b7f;
+  color: #fff0df;
+}
+.field-card.carrier {
+  box-shadow:
+    0 0 0 3px #dafa7330,
+    0 5px 15px #0005;
+}
+.replay-ball {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  font-size: 25px;
+  z-index: 5;
+  transition:
+    left 1s ease-in-out,
+    top 1s ease-in-out;
+  filter: drop-shadow(0 5px 4px #0007);
+}
+.replay-ball.airborne {
+  animation: ball-flight 1s ease-in-out;
+}
+.replay-ball.dropped {
+  opacity: 0.5;
+  transform: translate(-50%, 30%) rotate(60deg);
+}
+.route-lines {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  z-index: 1;
+}
+.route-lines path {
+  fill: none;
+  stroke: #dafa7360;
+  stroke-width: 0.5;
+  stroke-dasharray: 1.4 1;
+}
+.replay-outcome {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  transform: translateX(-50%);
+  z-index: 8;
+  background: #101a18ed;
+  color: #eef5df;
+  border: 1px solid #a4bc82;
+  border-radius: 5px;
+  padding: 13px 25px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 34px;
+  white-space: nowrap;
+  animation: outcome-in 0.25s ease-out;
+}
+.replay-outcome.touchdown {
+  color: #dafa73;
+}
+.replay-caption {
+  font-weight: 700;
+  font-size: 17px;
+  text-align: center;
+  margin: 20px;
+  color: #dafa73;
+  min-height: 28px;
+}
+.contact {
+  animation: contact-bump 0.3s ease-in-out;
+}
+.goalposts {
+  position: absolute;
+  right: 7%;
+  top: 34%;
+  width: 24px;
+  height: 32%;
+  border: 5px solid #ffdc72;
+  border-left: 0;
+  z-index: 2;
+}
+@keyframes ball-flight {
+  50% {
+    scale: 1.6;
+    filter: drop-shadow(0 20px 8px #0005);
+  }
+}
+@keyframes contact-bump {
+  50% {
+    translate: -4px 0;
+  }
+}
+@keyframes outcome-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.reduced-motion * {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .replay * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@media (max-width: 600px) {
+  .replay-field {
+    height: 370px;
+  }
+  .field-card {
+    width: 48px;
+    padding: 6px 2px;
+  }
+  .field-card strong {
+    font-size: 9px;
+  }
+  .field-card span {
+    display: none;
+  }
+  .field-card b {
+    font-size: 16px;
+  }
+  .replay-heading h1 {
+    font-size: 34px;
+  }
+  .replay-heading .quiet {
+    font-size: 11px;
+  }
+  .replay-outcome {
+    font-size: 25px;
+  }
+  .replay-endzone {
+    padding: 12px;
+    letter-spacing: 4px;
+  }
+  .replay-ball {
+    font-size: 20px;
+  }
+}

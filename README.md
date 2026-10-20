@@ -34,3 +34,5 @@ npm run ui:build
 - `DESIGN.md`: current rules and balance assumptions.
 
 React + TypeScript + Vite. No account, backend, or external game service is required. Probabilities are initial game-balance values, not NFL statistical estimates.
+
+Every snap now plays a short on-field card animation before the result. Cards show routes, blocking and pursuit; the ball follows runs, passes, turnovers and kicks. Skip moves directly to the same precomputed result. System reduced-motion preferences use a short static outcome view.
